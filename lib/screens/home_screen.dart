@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'add_player_screen.dart';
+import 'start_match_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -6,16 +8,13 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Cricket Scorer"),
-      ),
+      appBar: AppBar(title: const Text("Cricket Scorer")),
 
       body: Padding(
         padding: const EdgeInsets.all(20),
 
         child: Column(
           children: [
-
             const SizedBox(height: 20),
 
             Container(
@@ -29,30 +28,20 @@ class HomeScreen extends StatelessWidget {
 
               child: const Column(
                 children: [
-
-                  Icon(
-                    Icons.sports_cricket,
-                    size: 80,
-                    color: Colors.green,
-                  ),
+                  Icon(Icons.sports_cricket, size: 80, color: Colors.green),
 
                   SizedBox(height: 15),
 
                   Text(
                     "Local Cricket Scorer",
-                    style: TextStyle(
-                      fontSize: 25,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 25, fontWeight: FontWeight.bold),
                   ),
 
                   SizedBox(height: 8),
 
                   Text(
                     "Track local matches easily",
-                    style: TextStyle(
-                      color: Colors.grey,
-                    ),
+                    style: TextStyle(color: Colors.grey),
                   ),
                 ],
               ),
@@ -72,8 +61,15 @@ class HomeScreen extends StatelessWidget {
                   ),
                 ),
 
-                onPressed: () {},
+                onPressed: () {
+                  Navigator.push(
+                    context,
 
+                    MaterialPageRoute(
+                      builder: (context) => const AddPlayerScreen(),
+                    ),
+                  );
+                },
                 child: const Text(
                   "Add Players",
                   style: TextStyle(
@@ -99,8 +95,15 @@ class HomeScreen extends StatelessWidget {
                   ),
                 ),
 
-                onPressed: () {},
+                onPressed: () {
+                  Navigator.push(
+                    context,
 
+                    MaterialPageRoute(
+                      builder: (context) => const StartMatchScreen(),
+                    ),
+                  );
+                },
                 child: const Text(
                   "Start Match",
                   style: TextStyle(
