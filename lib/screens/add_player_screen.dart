@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../models/player_model.dart';
 import '../services/player_service.dart';
+import '../services/storage_service.dart';
 
 class AddPlayerScreen extends StatefulWidget {
-
   const AddPlayerScreen({super.key});
 
   @override
@@ -19,35 +19,46 @@ class _AddPlayerScreenState
   playerController =
   TextEditingController();
 
-  List<PlayerModel> players =
-      PlayerService.allPlayers;
+  List<PlayerModel> players = [];
 
-  void addPlayer(){
+  @override
+  void initState() {
+
+    super.initState();
+
+    loadPlayers();
+  }
+
+  // LOAD PLAYERS
+
+  void loadPlayers() async {
+
+    List<PlayerModel> loadedPlayers =
+
+    await StorageService.loadPlayers();
+
+    setState(() {
+
+      players = loadedPlayers;
+
+      PlayerService.allPlayers =
+          loadedPlayers;
+    });
+  }
+
+  // ADD PLAYER
+
+  void addPlayer() async {
 
     String name =
     playerController.text.trim();
 
-    // EMPTY CHECK
-
     if(name.isEmpty){
-
-      ScaffoldMessenger.of(context)
-          .showSnackBar(
-
-        const SnackBar(
-
-          content: Text(
-            "Enter player name",
-          ),
-        ),
-      );
-
       return;
     }
 
-    // DUPLICATE CHECK
-
     bool alreadyExists =
+
     players.any((player){
 
       return player.name
@@ -72,38 +83,39 @@ class _AddPlayerScreenState
       return;
     }
 
-    // ADD PLAYER
+    PlayerModel newPlayer =
+    PlayerModel(name: name);
 
     setState(() {
 
-      players.add(
+      players.add(newPlayer);
 
-        PlayerModel(
-          name: name,
-        ),
-      );
+      PlayerService.allPlayers =
+          players;
     });
 
+    // SAVE PLAYERS
+
+    await StorageService
+        .savePlayers(players);
+
     playerController.clear();
-
-    ScaffoldMessenger.of(context)
-        .showSnackBar(
-
-      const SnackBar(
-
-        content: Text(
-          "Player Added",
-        ),
-      ),
-    );
   }
 
-  void deletePlayer(int index){
+  // DELETE PLAYER
+
+  void deletePlayer(int index) async {
 
     setState(() {
 
       players.removeAt(index);
+
+      PlayerService.allPlayers =
+          players;
     });
+
+    await StorageService
+        .savePlayers(players);
   }
 
   @override
@@ -112,11 +124,16 @@ class _AddPlayerScreenState
     return Scaffold(
 
       appBar: AppBar(
-        title: const Text("Add Players"),
+
+        title: const Text(
+          "Add Players",
+        ),
       ),
 
       body: Padding(
-        padding: const EdgeInsets.all(20),
+
+        padding:
+        const EdgeInsets.all(20),
 
         child: Column(
 
@@ -138,23 +155,27 @@ class _AddPlayerScreenState
                 filled: true,
 
                 fillColor:
-                const Color(0xff1E293B),
+                const Color(
+                  0xff1E293B,
+                ),
 
                 border:
                 OutlineInputBorder(
 
                   borderRadius:
-                  BorderRadius.circular(18),
+                  BorderRadius.circular(
+                    15,
+                  ),
 
                   borderSide:
                   BorderSide.none,
                 ),
 
-                suffixIcon:
+                suffixIcon: IconButton(
 
-                IconButton(
-
-                  onPressed: addPlayer,
+                  onPressed: (){
+                    addPlayer();
+                  },
 
                   icon: const Icon(
                     Icons.add,
@@ -163,49 +184,28 @@ class _AddPlayerScreenState
               ),
             ),
 
-            const SizedBox(height: 25),
-
-            // TOTAL PLAYERS
-
-            Align(
-
-              alignment:
-              Alignment.centerLeft,
-
-              child: Text(
-
-                "Total Players: ${players.length}",
-
-                style: const TextStyle(
-
-                  fontSize: 18,
-                  fontWeight:
-                  FontWeight.bold,
-                ),
-              ),
+            const SizedBox(
+              height: 25,
             ),
 
-            const SizedBox(height: 20),
-
-            // PLAYER LIST
+            // PLAYERS LIST
 
             Expanded(
 
               child: players.isEmpty
 
-                  ? const Center(
+                  ?
+
+              const Center(
 
                 child: Text(
-
                   "No Players Added",
-
-                  style: TextStyle(
-                    fontSize: 18,
-                  ),
                 ),
               )
 
-                  : ListView.builder(
+                  :
+
+              ListView.builder(
 
                 itemCount:
                 players.length,
@@ -227,10 +227,14 @@ class _AddPlayerScreenState
                     BoxDecoration(
 
                       color:
-                      const Color(0xff1E293B),
+                      const Color(
+                        0xff1E293B,
+                      ),
 
                       borderRadius:
-                      BorderRadius.circular(18),
+                      BorderRadius.circular(
+                        18,
+                      ),
                     ),
 
                     child: ListTile(
@@ -248,31 +252,10 @@ class _AddPlayerScreenState
                         ),
                       ),
 
-                      title: Text(
-
-                        player.name,
-
-                        style:
-                        const TextStyle(
-
-                          fontSize: 18,
-                          fontWeight:
-                          FontWeight.w600,
-                        ),
-                      ),
-
-                      subtitle: Text(
-
-                        "Runs: ${player.runs}",
-
-                        style:
-                        const TextStyle(
-                          color: Colors.grey,
-                        ),
-                      ),
+                      title:
+                      Text(player.name),
 
                       trailing:
-
                       IconButton(
 
                         onPressed: (){

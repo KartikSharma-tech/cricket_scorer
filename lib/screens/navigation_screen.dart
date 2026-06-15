@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import 'add_player_screen.dart';
 import 'home_screen.dart';
+import 'add_player_screen.dart';
 import 'start_match_screen.dart';
 
 class NavigationScreen
@@ -12,7 +12,9 @@ class NavigationScreen
   });
 
   @override
-  State<NavigationScreen> createState() =>
+  State<NavigationScreen>
+  createState() =>
+
       _NavigationScreenState();
 }
 
@@ -38,20 +40,9 @@ class _NavigationScreenState
       body: pages[currentIndex],
 
       bottomNavigationBar:
-
       BottomNavigationBar(
 
-        currentIndex:
-        currentIndex,
-
-        backgroundColor:
-        const Color(0xff1E293B),
-
-        selectedItemColor:
-        Colors.green,
-
-        unselectedItemColor:
-        Colors.grey,
+        currentIndex: currentIndex,
 
         onTap: (index){
 
@@ -65,21 +56,27 @@ class _NavigationScreenState
 
           BottomNavigationBarItem(
 
-            icon: Icon(Icons.home),
+            icon: Icon(
+              Icons.home,
+            ),
 
             label: "Home",
           ),
 
           BottomNavigationBarItem(
 
-            icon: Icon(Icons.people),
+            icon: Icon(
+              Icons.person_add,
+            ),
 
             label: "Players",
           ),
 
           BottomNavigationBarItem(
 
-            icon: Icon(Icons.sports_cricket),
+            icon: Icon(
+              Icons.sports_cricket,
+            ),
 
             label: "Match",
           ),

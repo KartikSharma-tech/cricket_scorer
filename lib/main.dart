@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-// import 'screens/add_player_screen.dart';
 import 'screens/navigation_screen.dart';
 
 void main() {
@@ -44,25 +43,10 @@ class CricketScorerApp
           centerTitle: true,
         ),
 
-        elevatedButtonTheme:
-        ElevatedButtonThemeData(
-
-          style:
-          ElevatedButton.styleFrom(
-
-            backgroundColor:
-            Colors.green,
-
-            foregroundColor:
-            Colors.white,
-          ),
-        ),
-
         inputDecorationTheme:
         InputDecorationTheme(
 
           filled: true,
-// jjjhjhjhj
 
           fillColor:
           const Color(0xff1E293B),
@@ -71,7 +55,9 @@ class CricketScorerApp
           OutlineInputBorder(
 
             borderRadius:
-            BorderRadius.circular(15),
+            BorderRadius.circular(
+              15,
+            ),
 
             borderSide:
             BorderSide.none,
@@ -79,7 +65,8 @@ class CricketScorerApp
         ),
       ),
 
-      home: const NavigationScreen(),
+      home:
+      const NavigationScreen(),
     );
   }
 }

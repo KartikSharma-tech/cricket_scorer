@@ -1,15 +1,23 @@
+
 import 'package:flutter/material.dart';
 
 import '../models/player_model.dart';
 
+import '../services/match_service.dart';
+
 import 'live_score_screen.dart';
 
-class MatchSetupScreen extends StatefulWidget {
-  final List<PlayerModel> battingPlayers;
+class MatchSetupScreen
+    extends StatefulWidget {
 
-  final List<PlayerModel> bowlingPlayers;
+  final List<PlayerModel>
+  battingPlayers;
+
+  final List<PlayerModel>
+  bowlingPlayers;
 
   const MatchSetupScreen({
+
     super.key,
 
     required this.battingPlayers,
@@ -18,10 +26,15 @@ class MatchSetupScreen extends StatefulWidget {
   });
 
   @override
-  State<MatchSetupScreen> createState() => _MatchSetupScreenState();
+  State<MatchSetupScreen>
+  createState() =>
+
+      _MatchSetupScreenState();
 }
 
-class _MatchSetupScreenState extends State<MatchSetupScreen> {
+class _MatchSetupScreenState
+    extends State<MatchSetupScreen> {
+
   PlayerModel? striker;
 
   PlayerModel? nonStriker;
@@ -30,125 +43,219 @@ class _MatchSetupScreenState extends State<MatchSetupScreen> {
 
   @override
   void initState() {
+
     super.initState();
 
-    striker = widget.battingPlayers.first;
+    striker =
+    widget.battingPlayers.first;
 
-    nonStriker = widget.battingPlayers.length > 1
-        ? widget.battingPlayers[1]
-        : widget.battingPlayers.first;
+    nonStriker =
+    widget.battingPlayers.length > 1
 
-    bowler = widget.bowlingPlayers.first;
+        ?
+
+    widget.battingPlayers[1]
+
+        :
+
+    widget.battingPlayers.first;
+
+    bowler =
+    widget.bowlingPlayers.first;
   }
 
   @override
   Widget build(BuildContext context) {
+
     return Scaffold(
-      appBar: AppBar(title: const Text("Match Setup")),
+
+      appBar: AppBar(
+
+        title: const Text(
+          "Match Setup",
+        ),
+      ),
 
       body: Padding(
-        padding: const EdgeInsets.all(20),
+
+        padding:
+        const EdgeInsets.all(20),
 
         child: Column(
+
           children: [
+
             // STRIKER
+
             DropdownButtonFormField<PlayerModel>(
+
               value: striker,
 
-              decoration: InputDecoration(
-                labelText: "Select Striker",
+              decoration:
+              InputDecoration(
+
+                labelText:
+                "Select Striker",
 
                 filled: true,
 
-                fillColor: const Color(0xff1E293B),
+                fillColor:
+                const Color(
+                  0xff1E293B,
+                ),
 
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(15),
+                border:
+                OutlineInputBorder(
 
-                  borderSide: BorderSide.none,
+                  borderRadius:
+                  BorderRadius.circular(
+                    15,
+                  ),
+
+                  borderSide:
+                  BorderSide.none,
                 ),
               ),
 
-              items: widget.battingPlayers.map((player) {
+              items:
+
+              widget.battingPlayers
+                  .map((player){
+
                 return DropdownMenuItem(
+
                   value: player,
 
-                  child: Text(player.name),
+                  child:
+                  Text(player.name),
                 );
+
               }).toList(),
 
-              onChanged: (value) {
+              onChanged: (value){
+
                 setState(() {
+
                   striker = value;
                 });
               },
             ),
 
-            const SizedBox(height: 25),
+            const SizedBox(
+              height: 25,
+            ),
 
             // NON STRIKER
+
             DropdownButtonFormField<PlayerModel>(
+
               value: nonStriker,
 
-              decoration: InputDecoration(
-                labelText: "Select Non-Striker",
+              decoration:
+              InputDecoration(
+
+                labelText:
+                "Select Non-Striker",
 
                 filled: true,
 
-                fillColor: const Color(0xff1E293B),
+                fillColor:
+                const Color(
+                  0xff1E293B,
+                ),
 
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(15),
+                border:
+                OutlineInputBorder(
 
-                  borderSide: BorderSide.none,
+                  borderRadius:
+                  BorderRadius.circular(
+                    15,
+                  ),
+
+                  borderSide:
+                  BorderSide.none,
                 ),
               ),
 
-              items: widget.battingPlayers.map((player) {
+              items:
+
+              widget.battingPlayers
+                  .map((player){
+
                 return DropdownMenuItem(
+
                   value: player,
 
-                  child: Text(player.name),
+                  child:
+                  Text(player.name),
                 );
+
               }).toList(),
 
-              onChanged: (value) {
+              onChanged: (value){
+
                 setState(() {
+
                   nonStriker = value;
                 });
               },
             ),
 
-            const SizedBox(height: 25),
+            const SizedBox(
+              height: 25,
+            ),
 
             // BOWLER
+
             DropdownButtonFormField<PlayerModel>(
+
               value: bowler,
 
-              decoration: InputDecoration(
-                labelText: "Select Opening Bowler",
+              decoration:
+              InputDecoration(
+
+                labelText:
+                "Select Opening Bowler",
 
                 filled: true,
 
-                fillColor: const Color(0xff1E293B),
+                fillColor:
+                const Color(
+                  0xff1E293B,
+                ),
 
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(15),
+                border:
+                OutlineInputBorder(
 
-                  borderSide: BorderSide.none,
+                  borderRadius:
+                  BorderRadius.circular(
+                    15,
+                  ),
+
+                  borderSide:
+                  BorderSide.none,
                 ),
               ),
 
-              items: widget.bowlingPlayers.map((player) {
+              items:
+
+              widget.bowlingPlayers
+                  .map((player){
+
                 return DropdownMenuItem(
+
                   value: player,
 
-                  child: Text(player.name),
+                  child:
+                  Text(player.name),
                 );
+
               }).toList(),
 
-              onChanged: (value) {
+              onChanged: (value){
+
                 setState(() {
+
                   bowler = value;
                 });
               },
@@ -156,67 +263,121 @@ class _MatchSetupScreenState extends State<MatchSetupScreen> {
 
             const Spacer(),
 
+            // START MATCH BUTTON
+
             SizedBox(
-              width: double.infinity,
+
+              width:
+              double.infinity,
 
               height: 65,
 
               child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
 
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(18),
+                style:
+                ElevatedButton.styleFrom(
+
+                  backgroundColor:
+                  Colors.green,
+
+                  shape:
+                  RoundedRectangleBorder(
+
+                    borderRadius:
+                    BorderRadius.circular(
+                      18,
+                    ),
                   ),
                 ),
 
                 onPressed: () {
-                  if (striker == null || nonStriker == null || bowler == null) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text("Select all players")),
-                    );
 
-                    return;
-                  }
+                  // VALIDATION
 
-                  if (striker == nonStriker) {
-                    ScaffoldMessenger.of(context).showSnackBar(
+                  if(
+
+                  striker == null ||
+
+                      nonStriker == null ||
+
+                      bowler == null
+
+                  ){
+
+                    ScaffoldMessenger.of(
+                      context,
+                    ).showSnackBar(
+
                       const SnackBar(
-                        content: Text("Striker and Non-Striker cannot be same"),
+
+                        content: Text(
+                          "Select all players",
+                        ),
                       ),
                     );
 
                     return;
                   }
 
+                  // SAME PLAYER CHECK
+
+                  if(striker == nonStriker){
+
+                    ScaffoldMessenger.of(
+                      context,
+                    ).showSnackBar(
+
+                      const SnackBar(
+
+                        content: Text(
+                          "Striker and Non-Striker cannot be same",
+                        ),
+                      ),
+                    );
+
+                    return;
+                  }
+
+                  // SAVE MATCH DATA
+
+                  MatchService.striker =
+                      striker;
+
+                  MatchService.nonStriker =
+                      nonStriker;
+
+                  MatchService.currentBowler =
+                      bowler;
+
+                  // OPEN LIVE MATCH
+
                   Navigator.push(
+
                     context,
 
                     MaterialPageRoute(
-                      builder: (context) => LiveScoreScreen(
-                        battingPlayers: widget.battingPlayers,
 
-                        bowlingPlayers: widget.bowlingPlayers,
+                      builder:
+                          (context) =>
 
-                        strikerPlayer: striker!,
-
-                        nonStrikerPlayer: nonStriker!,
-
-                        bowlerPlayer: bowler!,
-                      ),
+                      const LiveScoreScreen(),
                     ),
                   );
                 },
 
                 child: const Text(
+
                   "Start Live Match",
 
                   style: TextStyle(
+
                     fontSize: 22,
 
-                    color: Colors.white,
+                    color:
+                    Colors.white,
 
-                    fontWeight: FontWeight.bold,
+                    fontWeight:
+                    FontWeight.bold,
                   ),
                 ),
               ),

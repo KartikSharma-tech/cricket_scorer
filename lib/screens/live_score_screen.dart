@@ -1,26 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../models/player_model.dart';
+import '../services/match_service.dart';
+import '../services/match_storage_service.dart';
 
 class LiveScoreScreen extends StatefulWidget {
 
-  final List<PlayerModel> battingPlayers;
-
-  final List<PlayerModel> bowlingPlayers;
-
-  final PlayerModel strikerPlayer;
-
-  final PlayerModel nonStrikerPlayer;
-
-  final PlayerModel bowlerPlayer;
-
   const LiveScoreScreen({
     super.key,
-    required this.battingPlayers,
-    required this.bowlingPlayers,
-    required this.strikerPlayer,
-    required this.nonStrikerPlayer,
-    required this.bowlerPlayer,
   });
 
   @override
@@ -31,96 +18,47 @@ class LiveScoreScreen extends StatefulWidget {
 class _LiveScoreScreenState
     extends State<LiveScoreScreen> {
 
-  int totalRuns = 0;
-
-  int wickets = 0;
-
-  int over = 0;
-
-  int ball = 0;
-
-  bool isMatchEnded = false;
-
-  late PlayerModel striker;
-
-  late PlayerModel nonStriker;
-
-  late PlayerModel currentBowler;
-
-  @override
-  void initState() {
-
-    super.initState();
-
-    striker =
-    widget.strikerPlayer;
-
-    nonStriker =
-    widget.nonStrikerPlayer;
-
-    currentBowler =
-    widget.bowlerPlayer;
-  }
-
   // =========================
-  // RUN RATE
+  // GETTERS
   // =========================
 
-  double getRunRate(){
+  PlayerModel get striker =>
+      MatchService.striker!;
 
-    double overs =
-        over + (ball / 6);
+  PlayerModel get nonStriker =>
+      MatchService.nonStriker!;
 
-    if(overs == 0){
-      return 0;
-    }
-
-    return totalRuns / overs;
-  }
+  PlayerModel get currentBowler =>
+      MatchService.currentBowler!;
 
   // =========================
-  // ECONOMY
-  // =========================
-
-  double getEconomy(){
-
-    double oversBowled =
-        currentBowler.ballsBowled / 6;
-
-    if(oversBowled == 0){
-      return 0;
-    }
-
-    return currentBowler.runsGiven /
-        oversBowled;
-  }
-
-  // =========================
-  // STRIKE RATE
-  // =========================
-
-  double getStrikeRate(){
-
-    if(striker.balls == 0){
-      return 0;
-    }
-
-    return
-        (striker.runs / striker.balls)
-        * 100;
-  }
-
-  // =========================
-  // CHANGE STRIKE
+  // STRIKE CHANGE
   // =========================
 
   void swapStrike(){
 
-    PlayerModel temp = striker;
+    PlayerModel temp =
+    MatchService.striker!;
 
-    striker = nonStriker;
+    MatchService.striker =
+        MatchService.nonStriker;
 
-    nonStriker = temp;
+    MatchService.nonStriker =
+        temp;
+  }
+
+  // =========================
+  // CHECK MATCH RESULT
+  // =========================
+
+  void checkMatchResult(){
+
+    MatchService.checkWinner();
+
+    if(MatchService.isMatchEnded){
+
+      showInningsCompleteDialog();
+    }
   }
 
   // =========================
@@ -129,13 +67,13 @@ class _LiveScoreScreenState
 
   void addRun(int run){
 
-    if(isMatchEnded){
+    if(MatchService.isMatchEnded){
       return;
     }
 
     setState(() {
 
-      totalRuns += run;
+      MatchService.totalRuns += run;
 
       striker.runs += run;
 
@@ -145,29 +83,81 @@ class _LiveScoreScreenState
 
       currentBowler.ballsBowled++;
 
-      ball++;
+      MatchService.ball++;
 
-      // STRIKE CHANGE
+      bool soloPlayer =
 
-      if(run == 1 ||
-          run == 3 ||
-          run == 5){
+          MatchService.wickets >=
 
-        swapStrike();
+              MatchService
+                  .battingPlayers
+                  .length - 1;
+
+      // STRIKE ROTATE
+
+      if(!soloPlayer){
+
+        if(
+
+        run == 1 ||
+            run == 3 ||
+            run == 5
+
+        ){
+
+          swapStrike();
+        }
       }
 
       // OVER COMPLETE
 
-      if(ball == 6){
+      if(MatchService.ball == 6){
 
-        over++;
+        MatchService.over++;
 
-        ball = 0;
+        MatchService.ball = 0;
 
-        swapStrike();
+        if(!soloPlayer){
+
+          swapStrike();
+        }
+
+        // OVERS END
+
+        if(
+
+        MatchService.over >=
+            MatchService.totalOvers
+
+        ){
+
+          if(
+
+          MatchService.isSecondInnings
+
+          ){
+
+            checkMatchResult();
+
+          }else{
+
+            showInningsCompleteDialog();
+          }
+
+          return;
+        }
 
         showBowlerDialog();
       }
+
+      // SECOND INNINGS WIN CHECK
+
+      if(MatchService.isSecondInnings){
+
+        checkMatchResult();
+      }
+
+      MatchStorageService.saveMatch();
     });
   }
 
@@ -177,15 +167,24 @@ class _LiveScoreScreenState
 
   void addWide(){
 
-    if(isMatchEnded){
+    if(MatchService.isMatchEnded){
       return;
     }
 
     setState(() {
 
-      totalRuns++;
+      MatchService.totalRuns++;
+
+      MatchService.wides++;
 
       currentBowler.runsGiven++;
+
+      if(MatchService.isSecondInnings){
+
+        checkMatchResult();
+      }
+
+      MatchStorageService.saveMatch();
     });
   }
 
@@ -195,15 +194,24 @@ class _LiveScoreScreenState
 
   void addNoBall(){
 
-    if(isMatchEnded){
+    if(MatchService.isMatchEnded){
       return;
     }
 
     setState(() {
 
-      totalRuns++;
+      MatchService.totalRuns++;
+
+      MatchService.noBalls++;
 
       currentBowler.runsGiven++;
+
+      if(MatchService.isSecondInnings){
+
+        checkMatchResult();
+      }
+
+      MatchStorageService.saveMatch();
     });
   }
 
@@ -213,83 +221,311 @@ class _LiveScoreScreenState
 
   void addWicket(){
 
-    if(isMatchEnded){
+    if(MatchService.isMatchEnded){
       return;
     }
 
     setState(() {
 
-      wickets++;
+      MatchService.wickets++;
 
       striker.balls++;
 
+      currentBowler.wickets++;
+
       currentBowler.ballsBowled++;
 
-      ball++;
+      MatchService.ball++;
+
+      MatchService.outPlayers
+          .add(striker);
 
       // ALL OUT
 
-      if(wickets >=
-          widget.battingPlayers.length){
+      if(
 
-        isMatchEnded = true;
+      MatchService.wickets >=
 
-        ScaffoldMessenger.of(context)
-            .showSnackBar(
+          MatchService
+              .battingPlayers
+              .length
 
-          const SnackBar(
-            content: Text("All Out"),
-          ),
-        );
+      ){
+
+        if(
+
+        MatchService.isSecondInnings
+
+        ){
+
+          checkMatchResult();
+
+        }else{
+
+          showInningsCompleteDialog();
+        }
 
         return;
       }
 
+      // REMAINING PLAYERS
+
+      List<PlayerModel>
+      remainingPlayers =
+
+      MatchService.battingPlayers
+          .where((player){
+
+        return
+
+        !MatchService.outPlayers
+            .contains(player)
+
+            &&
+
+            player != nonStriker;
+
+      }).toList();
+
+      // NEW BATSMAN
+
+      if(remainingPlayers.isNotEmpty){
+
+        showNewBatsmanDialog(
+            remainingPlayers);
+
+      }else{
+
+        MatchService.striker =
+            MatchService.nonStriker;
+      }
+
       // OVER COMPLETE
 
-      if(ball == 6){
+      if(MatchService.ball == 6){
 
-        over++;
+        MatchService.over++;
 
-        ball = 0;
+        MatchService.ball = 0;
 
-        swapStrike();
+        bool soloPlayer =
+
+            MatchService.wickets >=
+
+                MatchService
+                    .battingPlayers
+                    .length - 1;
+
+        if(!soloPlayer){
+
+          swapStrike();
+        }
+
+        if(
+
+        MatchService.over >=
+            MatchService.totalOvers
+
+        ){
+
+          if(
+
+          MatchService.isSecondInnings
+
+          ){
+
+            checkMatchResult();
+
+          }else{
+
+            showInningsCompleteDialog();
+          }
+
+          return;
+        }
 
         showBowlerDialog();
       }
+
+      MatchStorageService.saveMatch();
     });
+  }
 
-    List<PlayerModel> remainingPlayers =
+  // =========================
+  // RUN OUT
+  // =========================
 
-    widget.battingPlayers.where((player){
+  void addRunOut(){
 
-      return player != striker &&
-          player != nonStriker;
-
-    }).toList();
-
-    // NEW BATSMAN
-
-    if(remainingPlayers.isNotEmpty){
-
-      showNewBatsmanDialog();
+    if(MatchService.isMatchEnded){
+      return;
     }
+
+    setState(() {
+
+      MatchService.wickets++;
+
+      striker.balls++;
+
+      MatchService.ball++;
+
+      MatchService.outPlayers
+          .add(striker);
+
+      // ALL OUT
+
+      if(
+
+      MatchService.wickets >=
+
+          MatchService
+              .battingPlayers
+              .length
+
+      ){
+
+        if(
+
+        MatchService.isSecondInnings
+
+        ){
+
+          checkMatchResult();
+
+        }else{
+
+          showInningsCompleteDialog();
+        }
+
+        return;
+      }
+
+      // REMAINING PLAYERS
+
+      List<PlayerModel>
+      remainingPlayers =
+
+      MatchService.battingPlayers
+          .where((player){
+
+        return
+
+        !MatchService.outPlayers
+            .contains(player)
+
+            &&
+
+            player != nonStriker;
+
+      }).toList();
+
+      if(remainingPlayers.isNotEmpty){
+
+        showNewBatsmanDialog(
+            remainingPlayers);
+
+      }else{
+
+        MatchService.striker =
+            MatchService.nonStriker;
+      }
+
+      // OVER COMPLETE
+
+      if(MatchService.ball == 6){
+
+        MatchService.over++;
+
+        MatchService.ball = 0;
+
+        showBowlerDialog();
+      }
+
+      MatchStorageService.saveMatch();
+    });
+  }
+
+  // =========================
+  // RUN RATE
+  // =========================
+
+  double getCurrentRunRate(){
+
+    return MatchService
+        .getCurrentRunRate();
+  }
+
+  double getRequiredRunRate(){
+
+    return MatchService
+        .getRequiredRunRate();
+  }
+
+  // =========================
+  // STRIKE RATE
+  // =========================
+
+  double getStrikeRate(
+      PlayerModel player){
+
+    if(player.balls == 0){
+      return 0;
+    }
+
+    return
+
+        (player.runs / player.balls)
+            * 100;
+  }
+
+  // =========================
+  // BOWLER OVERS
+  // =========================
+
+  String getBowlerOvers(){
+
+    int overs =
+
+        currentBowler
+            .ballsBowled ~/ 6;
+
+    int balls =
+
+        currentBowler
+            .ballsBowled % 6;
+
+    return "$overs.$balls";
+  }
+
+  // =========================
+  // ECONOMY
+  // =========================
+
+  double getEconomy(){
+
+    if(currentBowler
+        .ballsBowled == 0){
+
+      return 0;
+    }
+
+    double overs =
+
+        currentBowler
+            .ballsBowled / 6;
+
+    return
+
+        currentBowler.runsGiven
+            / overs;
   }
 
   // =========================
   // NEW BATSMAN
   // =========================
 
-  void showNewBatsmanDialog(){
-
-    List<PlayerModel> availablePlayers =
-
-    widget.battingPlayers.where((player){
-
-      return player != striker &&
-          player != nonStriker;
-
-    }).toList();
+  void showNewBatsmanDialog(
+      List<PlayerModel> players){
 
     showDialog(
 
@@ -314,25 +550,29 @@ class _LiveScoreScreenState
               shrinkWrap: true,
 
               itemCount:
-              availablePlayers.length,
+              players.length,
 
-              itemBuilder: (context, index){
+              itemBuilder:
+                  (context, index){
 
                 PlayerModel player =
-                availablePlayers[index];
+                players[index];
 
                 return ListTile(
 
-                  title: Text(
-                    player.name,
-                  ),
+                  title:
+                  Text(player.name),
 
                   onTap: (){
 
                     setState(() {
 
-                      striker = player;
+                      MatchService.striker =
+                          player;
                     });
+
+                    MatchStorageService
+                        .saveMatch();
 
                     Navigator.pop(context);
                   },
@@ -346,16 +586,19 @@ class _LiveScoreScreenState
   }
 
   // =========================
-  // NEXT BOWLER
+  // BOWLER DIALOG
   // =========================
 
   void showBowlerDialog(){
 
-    List<PlayerModel> availableBowlers =
+    List<PlayerModel>
+    bowlers =
 
-    widget.bowlingPlayers.where((player){
+    MatchService.bowlingPlayers
+        .where((player){
 
-      return player != currentBowler;
+      return player !=
+          currentBowler;
 
     }).toList();
 
@@ -382,26 +625,30 @@ class _LiveScoreScreenState
               shrinkWrap: true,
 
               itemCount:
-              availableBowlers.length,
+              bowlers.length,
 
-              itemBuilder: (context, index){
+              itemBuilder:
+                  (context, index){
 
                 PlayerModel bowler =
-                availableBowlers[index];
+                bowlers[index];
 
                 return ListTile(
 
-                  title: Text(
-                    bowler.name,
-                  ),
+                  title:
+                  Text(bowler.name),
 
                   onTap: (){
 
                     setState(() {
 
-                      currentBowler =
-                      bowler;
+                      MatchService
+                          .currentBowler =
+                          bowler;
                     });
+
+                    MatchStorageService
+                        .saveMatch();
 
                     Navigator.pop(context);
                   },
@@ -409,6 +656,389 @@ class _LiveScoreScreenState
               },
             ),
           ),
+        );
+      },
+    );
+  }
+
+  // =========================
+  // SECOND INNINGS START
+  // =========================
+
+  void startSecondInnings(){
+
+    Navigator.pop(context);
+
+    MatchService.firstInningsScore =
+        MatchService.totalRuns;
+
+    MatchService.target =
+        MatchService.firstInningsScore + 1;
+
+    MatchService.isSecondInnings =
+    true;
+
+    // SWAP TEAMS
+
+    List<PlayerModel>
+    oldBatting =
+
+        MatchService.battingPlayers;
+
+    MatchService.battingPlayers =
+
+        MatchService.bowlingPlayers;
+
+    MatchService.bowlingPlayers =
+        oldBatting;
+
+    MatchService.resetInnings();
+
+    showSecondInningsSetup();
+  }
+
+  // =========================
+  // SECOND INNINGS SETUP
+  // =========================
+
+  void showSecondInningsSetup(){
+
+    showDialog(
+
+      context: context,
+
+      barrierDismissible: false,
+
+      builder: (context){
+
+        PlayerModel?
+        selectedStriker;
+
+        PlayerModel?
+        selectedNonStriker;
+
+        PlayerModel?
+        selectedBowler;
+
+        return StatefulBuilder(
+
+          builder: (context, setDialogState){
+
+            return AlertDialog(
+
+              title: const Text(
+                "2nd Innings Setup",
+              ),
+
+              content:
+              SingleChildScrollView(
+
+                child: Column(
+
+                  mainAxisSize:
+                  MainAxisSize.min,
+
+                  children: [
+
+                    DropdownButton<PlayerModel>(
+
+                      isExpanded: true,
+
+                      hint: const Text(
+                        "Select Striker",
+                      ),
+
+                      value:
+                      selectedStriker,
+
+                      items:
+
+                      MatchService
+                          .battingPlayers
+                          .map((player){
+
+                        return DropdownMenuItem(
+
+                          value: player,
+
+                          child:
+                          Text(player.name),
+                        );
+
+                      }).toList(),
+
+                      onChanged: (value){
+
+                        setDialogState(() {
+
+                          selectedStriker =
+                              value;
+                        });
+                      },
+                    ),
+
+                    const SizedBox(
+                      height: 15,
+                    ),
+
+                    DropdownButton<PlayerModel>(
+
+                      isExpanded: true,
+
+                      hint: const Text(
+                        "Select Non Striker",
+                      ),
+
+                      value:
+                      selectedNonStriker,
+
+                      items:
+
+                      MatchService
+                          .battingPlayers
+                          .where((player){
+
+                        return player !=
+                            selectedStriker;
+
+                      }).map((player){
+
+                        return DropdownMenuItem(
+
+                          value: player,
+
+                          child:
+                          Text(player.name),
+                        );
+
+                      }).toList(),
+
+                      onChanged: (value){
+
+                        setDialogState(() {
+
+                          selectedNonStriker =
+                              value;
+                        });
+                      },
+                    ),
+
+                    const SizedBox(
+                      height: 15,
+                    ),
+
+                    DropdownButton<PlayerModel>(
+
+                      isExpanded: true,
+
+                      hint: const Text(
+                        "Select Bowler",
+                      ),
+
+                      value:
+                      selectedBowler,
+
+                      items:
+
+                      MatchService
+                          .bowlingPlayers
+                          .map((player){
+
+                        return DropdownMenuItem(
+
+                          value: player,
+
+                          child:
+                          Text(player.name),
+                        );
+
+                      }).toList(),
+
+                      onChanged: (value){
+
+                        setDialogState(() {
+
+                          selectedBowler =
+                              value;
+                        });
+                      },
+                    ),
+                  ],
+                ),
+              ),
+
+              actions: [
+
+                TextButton(
+
+                  onPressed: (){
+
+                    if(
+
+                    selectedStriker == null ||
+
+                        selectedNonStriker
+                            == null ||
+
+                        selectedBowler
+                            == null
+
+                    ){
+
+                      return;
+                    }
+
+                    setState(() {
+
+                      MatchService.striker =
+                          selectedStriker;
+
+                      MatchService.nonStriker =
+                          selectedNonStriker;
+
+                      MatchService.currentBowler =
+                          selectedBowler;
+                    });
+
+                    MatchStorageService
+                        .saveMatch();
+
+                    Navigator.pop(context);
+                  },
+
+                  child: const Text(
+                    "Start Innings",
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // =========================
+  // INNINGS COMPLETE
+  // =========================
+
+  void showInningsCompleteDialog(){
+
+    showDialog(
+
+      context: context,
+
+      barrierDismissible: false,
+
+      builder: (context){
+
+        return AlertDialog(
+
+          title: Text(
+
+            MatchService.isSecondInnings
+
+                ?
+
+            "Match Finished"
+
+                :
+
+            "1st Innings Complete",
+          ),
+
+          content: Column(
+
+            mainAxisSize:
+            MainAxisSize.min,
+
+            children: [
+
+              Text(
+
+                "Score : "
+
+                    "${MatchService.totalRuns}"
+
+                    "/"
+
+                    "${MatchService.wickets}",
+              ),
+
+              const SizedBox(
+                height: 10,
+              ),
+
+              if(
+
+              MatchService.isSecondInnings
+
+              )
+
+                Text(
+
+                  MatchService.resultText,
+
+                  style: const TextStyle(
+
+                    fontWeight:
+                    FontWeight.bold,
+
+                    fontSize: 18,
+                  ),
+                ),
+            ],
+          ),
+
+          actions: [
+
+            // START SECOND INNINGS
+
+            if(
+
+            !MatchService.isSecondInnings
+
+            )
+
+              TextButton(
+
+                onPressed: (){
+
+                  startSecondInnings();
+                },
+
+                child: const Text(
+                  "Start 2nd Innings",
+                ),
+              ),
+
+            // FINISH MATCH
+
+            if(
+
+            MatchService.isSecondInnings
+
+            )
+
+              TextButton(
+
+                onPressed: () async {
+
+                  await MatchStorageService
+                      .clearMatch();
+
+                  MatchService.resetMatch();
+
+                  Navigator.pop(context);
+
+                  Navigator.pop(context);
+                },
+
+                child: const Text(
+                  "Finish",
+                ),
+              ),
+          ],
         );
       },
     );
@@ -429,10 +1059,13 @@ class _LiveScoreScreenState
 
       child: ElevatedButton(
 
-        style: ElevatedButton.styleFrom(
+        style:
+        ElevatedButton.styleFrom(
 
           backgroundColor:
-          const Color(0xff1E293B),
+          const Color(
+            0xff1E293B,
+          ),
         ),
 
         onPressed: onTap,
@@ -442,7 +1075,9 @@ class _LiveScoreScreenState
           text,
 
           style: const TextStyle(
+
             fontSize: 22,
+
             fontWeight:
             FontWeight.bold,
           ),
@@ -457,7 +1092,15 @@ class _LiveScoreScreenState
     return Scaffold(
 
       appBar: AppBar(
-        title: const Text("Live Score"),
+
+        title: Text(
+
+          "${MatchService.teamAName}"
+
+              " vs "
+
+              "${MatchService.teamBName}",
+        ),
       ),
 
       body: SingleChildScrollView(
@@ -469,22 +1112,28 @@ class _LiveScoreScreenState
 
           children: [
 
-            // SCORE
+            // SCORE CARD
 
             Container(
 
-              width: double.infinity,
+              width:
+              double.infinity,
 
               padding:
               const EdgeInsets.all(25),
 
-              decoration: BoxDecoration(
+              decoration:
+              BoxDecoration(
 
                 color:
-                const Color(0xff1E293B),
+                const Color(
+                  0xff1E293B,
+                ),
 
                 borderRadius:
-                BorderRadius.circular(20),
+                BorderRadius.circular(
+                  20,
+                ),
               ),
 
               child: Column(
@@ -493,60 +1142,138 @@ class _LiveScoreScreenState
 
                   Text(
 
-                    "$totalRuns/$wickets",
+                    "${MatchService.totalRuns}"
+
+                        "/"
+
+                        "${MatchService.wickets}",
 
                     style: const TextStyle(
 
-                      fontSize: 42,
+                      fontSize: 40,
 
                       fontWeight:
                       FontWeight.bold,
                     ),
                   ),
 
-                  const SizedBox(height: 10),
-
-                  Text(
-
-                    "Overs: $over.$ball",
-
-                    style: const TextStyle(
-                      fontSize: 20,
-                    ),
+                  const SizedBox(
+                    height: 10,
                   ),
 
-                  const SizedBox(height: 10),
+                  Text(
+
+                    "Overs : "
+
+                        "${MatchService.over}"
+                        "."
+                        "${MatchService.ball}"
+
+                        " / "
+
+                        "${MatchService.totalOvers}",
+                  ),
+
+                  const SizedBox(
+                    height: 10,
+                  ),
+
+                  if(
+
+                  MatchService.isSecondInnings
+
+                  )
+
+                    Text(
+
+                      "Target : ${MatchService.target}",
+                    ),
+
+                  const SizedBox(
+                    height: 5,
+                  ),
+
+                  if(
+
+                  MatchService.isSecondInnings
+
+                  )
+
+                    Text(
+
+                      "Need "
+
+                          "${MatchService.getRemainingRuns()}"
+
+                          " runs in "
+
+                          "${MatchService.getRemainingBalls()}"
+
+                          " balls",
+                    ),
+
+                  const SizedBox(
+                    height: 10,
+                  ),
 
                   Text(
 
-                    "CRR: ${getRunRate().toStringAsFixed(2)}",
+                    "CRR : "
 
-                    style: const TextStyle(
-                      fontSize: 18,
-                    ),
+                        "${getCurrentRunRate().toStringAsFixed(2)}",
+                  ),
+
+                  const SizedBox(
+                    height: 5,
+                  ),
+
+                  Text(
+
+                    "RRR : "
+
+                        "${getRequiredRunRate().toStringAsFixed(2)}",
+                  ),
+
+                  const SizedBox(
+                    height: 10,
+                  ),
+
+                  Text(
+
+                    "Extras : "
+
+                        "${MatchService.getTotalExtras()}",
                   ),
                 ],
               ),
             ),
 
-            const SizedBox(height: 25),
+            const SizedBox(
+              height: 25,
+            ),
 
-            // BATSMAN
+            // STRIKER
 
             Container(
 
-              width: double.infinity,
+              width:
+              double.infinity,
 
               padding:
               const EdgeInsets.all(20),
 
-              decoration: BoxDecoration(
+              decoration:
+              BoxDecoration(
 
                 color:
-                const Color(0xff1E293B),
+                const Color(
+                  0xff1E293B,
+                ),
 
                 borderRadius:
-                BorderRadius.circular(20),
+                BorderRadius.circular(
+                  20,
+                ),
               ),
 
               child: Column(
@@ -569,25 +1296,61 @@ class _LiveScoreScreenState
                     ),
                   ),
 
-                  const SizedBox(height: 15),
+                  const SizedBox(
+                    height: 15,
+                  ),
+
+                  Text(striker.name),
 
                   Text(
-                    striker.name,
+                    "Runs : ${striker.runs}",
                   ),
 
                   Text(
-                    "Runs: ${striker.runs}",
+                    "Balls : ${striker.balls}",
                   ),
 
                   Text(
-                    "Balls: ${striker.balls}",
+                    "SR : ${getStrikeRate(striker).toStringAsFixed(1)}",
                   ),
+                ],
+              ),
+            ),
 
-                  Text(
-                    "SR: ${getStrikeRate().toStringAsFixed(1)}",
-                  ),
+            const SizedBox(
+              height: 20,
+            ),
 
-                  const SizedBox(height: 20),
+            // NON STRIKER
+
+            Container(
+
+              width:
+              double.infinity,
+
+              padding:
+              const EdgeInsets.all(20),
+
+              decoration:
+              BoxDecoration(
+
+                color:
+                const Color(
+                  0xff1E293B,
+                ),
+
+                borderRadius:
+                BorderRadius.circular(
+                  20,
+                ),
+              ),
+
+              child: Column(
+
+                crossAxisAlignment:
+                CrossAxisAlignment.start,
+
+                children: [
 
                   const Text(
 
@@ -602,39 +1365,53 @@ class _LiveScoreScreenState
                     ),
                   ),
 
-                  const SizedBox(height: 15),
+                  const SizedBox(
+                    height: 15,
+                  ),
 
                   Text(nonStriker.name),
 
                   Text(
-                    "Runs: ${nonStriker.runs}",
+                    "Runs : ${nonStriker.runs}",
                   ),
 
                   Text(
-                    "Balls: ${nonStriker.balls}",
+                    "Balls : ${nonStriker.balls}",
+                  ),
+
+                  Text(
+                    "SR : ${getStrikeRate(nonStriker).toStringAsFixed(1)}",
                   ),
                 ],
               ),
             ),
 
-            const SizedBox(height: 25),
+            const SizedBox(
+              height: 20,
+            ),
 
             // BOWLER
 
             Container(
 
-              width: double.infinity,
+              width:
+              double.infinity,
 
               padding:
               const EdgeInsets.all(20),
 
-              decoration: BoxDecoration(
+              decoration:
+              BoxDecoration(
 
                 color:
-                const Color(0xff1E293B),
+                const Color(
+                  0xff1E293B,
+                ),
 
                 borderRadius:
-                BorderRadius.circular(20),
+                BorderRadius.circular(
+                  20,
+                ),
               ),
 
               child: Column(
@@ -646,7 +1423,7 @@ class _LiveScoreScreenState
 
                   const Text(
 
-                    "Bowler",
+                    "Current Bowler",
 
                     style: TextStyle(
 
@@ -657,28 +1434,34 @@ class _LiveScoreScreenState
                     ),
                   ),
 
-                  const SizedBox(height: 15),
+                  const SizedBox(
+                    height: 15,
+                  ),
+
+                  Text(currentBowler.name),
 
                   Text(
-                    currentBowler.name,
+                    "Runs Given : ${currentBowler.runsGiven}",
                   ),
 
                   Text(
-                    "Runs Given: ${currentBowler.runsGiven}",
+                    "Wickets : ${currentBowler.wickets}",
                   ),
 
                   Text(
-                    "Balls: ${currentBowler.ballsBowled}",
+                    "Overs : ${getBowlerOvers()}",
                   ),
 
                   Text(
-                    "Economy: ${getEconomy().toStringAsFixed(1)}",
+                    "Economy : ${getEconomy().toStringAsFixed(1)}",
                   ),
                 ],
               ),
             ),
 
-            const SizedBox(height: 30),
+            const SizedBox(
+              height: 30,
+            ),
 
             // BUTTONS
 
@@ -718,6 +1501,10 @@ class _LiveScoreScreenState
                   addWicket();
                 }),
 
+                runButton("RO", (){
+                  addRunOut();
+                }),
+
                 runButton("WD", (){
                   addWide();
                 }),
@@ -728,7 +1515,9 @@ class _LiveScoreScreenState
               ],
             ),
 
-            const SizedBox(height: 30),
+            const SizedBox(
+              height: 30,
+            ),
           ],
         ),
       ),

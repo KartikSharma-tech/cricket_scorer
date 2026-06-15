@@ -1,119 +1,254 @@
 import 'package:flutter/material.dart';
-import 'add_player_screen.dart';
+
+import '../services/match_storage_service.dart';
+
+import 'live_score_screen.dart';
 import 'start_match_screen.dart';
 
-class HomeScreen extends StatelessWidget {
-  const HomeScreen({super.key});
+class HomeScreen extends StatefulWidget {
+
+  const HomeScreen({
+    super.key,
+  });
+
+  @override
+  State<HomeScreen> createState() =>
+      _HomeScreenState();
+}
+
+class _HomeScreenState
+    extends State<HomeScreen> {
+
+  bool hasSavedMatch = false;
+
+  @override
+  void initState() {
+
+    super.initState();
+
+    checkSavedMatch();
+  }
+
+  // CHECK SAVED MATCH
+
+  void checkSavedMatch() async {
+
+    bool loaded =
+
+    await MatchStorageService
+        .loadMatch();
+
+    setState(() {
+
+      hasSavedMatch = loaded;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
+
     return Scaffold(
-      appBar: AppBar(title: const Text("Cricket Scorer")),
+
+      appBar: AppBar(
+
+        title: const Text(
+          "Cricket Scorer",
+        ),
+      ),
 
       body: Padding(
-        padding: const EdgeInsets.all(20),
+
+        padding:
+        const EdgeInsets.all(20),
 
         child: Column(
+
+          mainAxisAlignment:
+          MainAxisAlignment.center,
+
           children: [
-            const SizedBox(height: 20),
 
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(25),
+            // LOGO
 
-              decoration: BoxDecoration(
-                color: const Color(0xff1E293B),
-                borderRadius: BorderRadius.circular(20),
-              ),
+            const Icon(
 
-              child: const Column(
-                children: [
-                  Icon(Icons.sports_cricket, size: 80, color: Colors.green),
+              Icons.sports_cricket,
 
-                  SizedBox(height: 15),
+              size: 120,
 
-                  Text(
-                    "Local Cricket Scorer",
-                    style: TextStyle(fontSize: 25, fontWeight: FontWeight.bold),
-                  ),
+              color: Colors.green,
+            ),
 
-                  SizedBox(height: 8),
+            const SizedBox(
+              height: 30,
+            ),
 
-                  Text(
-                    "Track local matches easily",
-                    style: TextStyle(color: Colors.grey),
-                  ),
-                ],
+            const Text(
+
+              "Live Cricket Scoring App",
+
+              style: TextStyle(
+
+                fontSize: 28,
+
+                fontWeight:
+                FontWeight.bold,
               ),
             ),
 
-            const SizedBox(height: 40),
+            const SizedBox(
+              height: 15,
+            ),
+
+            const Text(
+
+              "Create matches, "
+                  "track scores, "
+                  "manage players "
+                  "and continue saved games.",
+
+              textAlign:
+              TextAlign.center,
+
+              style: TextStyle(
+                fontSize: 16,
+              ),
+            ),
+
+            const SizedBox(
+              height: 50,
+            ),
+
+            // START NEW MATCH
 
             SizedBox(
-              width: double.infinity,
+
+              width:
+              double.infinity,
+
               height: 65,
 
               child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(18),
+
+                style:
+                ElevatedButton.styleFrom(
+
+                  backgroundColor:
+                  Colors.green,
+
+                  shape:
+                  RoundedRectangleBorder(
+
+                    borderRadius:
+                    BorderRadius.circular(
+                      18,
+                    ),
                   ),
                 ),
 
                 onPressed: () {
+
                   Navigator.push(
+
                     context,
 
                     MaterialPageRoute(
-                      builder: (context) => const AddPlayerScreen(),
+
+                      builder:
+                          (context) =>
+
+                      const StartMatchScreen(),
                     ),
                   );
                 },
+
                 child: const Text(
-                  "Add Players",
+
+                  "Start New Match",
+
                   style: TextStyle(
+
                     fontSize: 22,
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
+
+                    color:
+                    Colors.white,
+
+                    fontWeight:
+                    FontWeight.bold,
                   ),
                 ),
               ),
             ),
 
-            const SizedBox(height: 20),
+            const SizedBox(
+              height: 20,
+            ),
 
-            SizedBox(
-              width: double.infinity,
-              height: 65,
+            // CONTINUE MATCH
 
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.orange,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(18),
-                  ),
-                ),
+            if(hasSavedMatch)
 
-                onPressed: () {
-                  Navigator.push(
-                    context,
+              SizedBox(
 
-                    MaterialPageRoute(
-                      builder: (context) => const StartMatchScreen(),
+                width:
+                double.infinity,
+
+                height: 65,
+
+                child: ElevatedButton(
+
+                  style:
+                  ElevatedButton.styleFrom(
+
+                    backgroundColor:
+                    Colors.orange,
+
+                    shape:
+                    RoundedRectangleBorder(
+
+                      borderRadius:
+                      BorderRadius.circular(
+                        18,
+                      ),
                     ),
-                  );
-                },
-                child: const Text(
-                  "Start Match",
-                  style: TextStyle(
-                    fontSize: 22,
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
+                  ),
+
+                  onPressed: () async {
+
+                    await MatchStorageService
+                        .loadMatch();
+
+                    Navigator.push(
+
+                      context,
+
+                      MaterialPageRoute(
+
+                        builder:
+                            (context) =>
+
+                        const LiveScoreScreen(),
+                      ),
+                    );
+                  },
+
+                  child: const Text(
+
+                    "Continue Match",
+
+                    style: TextStyle(
+
+                      fontSize: 22,
+
+                      color:
+                      Colors.white,
+
+                      fontWeight:
+                      FontWeight.bold,
+                    ),
                   ),
                 ),
               ),
-            ),
           ],
         ),
       ),
