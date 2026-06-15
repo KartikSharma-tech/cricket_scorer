@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
-import 'screens/add_player_screen.dart';
+// import 'screens/add_player_screen.dart';
+import 'screens/navigation_screen.dart';
 
 void main() {
 
@@ -61,6 +62,7 @@ class CricketScorerApp
         InputDecorationTheme(
 
           filled: true,
+// jjjhjhjhj
 
           fillColor:
           const Color(0xff1E293B),
@@ -77,7 +79,7 @@ class CricketScorerApp
         ),
       ),
 
-      home: const AddPlayerScreen(),
+      home: const NavigationScreen(),
     );
   }
 }
