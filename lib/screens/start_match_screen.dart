@@ -451,7 +451,7 @@ class _StartMatchScreenState
 
                   // NEXT SCREEN
 
-                  Navigator.push(
+                  Navigator.pushReplacement(
 
                     context,
 

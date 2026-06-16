@@ -89,7 +89,7 @@ class _MatchSetupScreenState
 
             DropdownButtonFormField<PlayerModel>(
 
-              value: striker,
+              initialValue: striker,
 
               decoration:
               InputDecoration(
@@ -149,7 +149,7 @@ class _MatchSetupScreenState
 
             DropdownButtonFormField<PlayerModel>(
 
-              value: nonStriker,
+              initialValue: nonStriker,
 
               decoration:
               InputDecoration(
@@ -209,7 +209,7 @@ class _MatchSetupScreenState
 
             DropdownButtonFormField<PlayerModel>(
 
-              value: bowler,
+              initialValue: bowler,
 
               decoration:
               InputDecoration(
@@ -351,7 +351,7 @@ class _MatchSetupScreenState
 
                   // OPEN LIVE MATCH
 
-                  Navigator.push(
+                  Navigator.pushReplacement(
 
                     context,
 
