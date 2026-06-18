@@ -69,8 +69,13 @@ class StorageService {
       jsonDecode(player);
 
       return PlayerModel(
-        name: data["name"],
-      );
+
+  id: DateTime.now()
+      .millisecondsSinceEpoch
+      .toString(),
+
+  name: data["name"],
+);
 
     }).toList();
   }

@@ -39,7 +39,7 @@ class _StartMatchScreenState
   TextEditingController();
 
   List<PlayerModel> allPlayers =
-      PlayerService.allPlayers;
+    PlayerService.getPlayers();
 
   List<PlayerModel> teamAPlayers = [];
 

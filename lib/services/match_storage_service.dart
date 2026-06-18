@@ -247,21 +247,25 @@ class MatchStorageService {
 
       return PlayerModel(
 
-        name: data["name"],
+  id: DateTime.now()
+      .millisecondsSinceEpoch
+      .toString(),
 
-        runs: data["runs"],
+  name: data["name"],
 
-        balls: data["balls"],
+  runs: data["runs"],
 
-        runsGiven:
-        data["runsGiven"],
+  balls: data["balls"],
 
-        ballsBowled:
-        data["ballsBowled"],
+  runsGiven:
+  data["runsGiven"],
 
-        wickets:
-        data["wickets"],
-      );
+  ballsBowled:
+  data["ballsBowled"],
+
+  wickets:
+  data["wickets"],
+);
 
     }).toList();
 
@@ -275,21 +279,25 @@ class MatchStorageService {
 
       return PlayerModel(
 
-        name: data["name"],
+  id: DateTime.now()
+      .millisecondsSinceEpoch
+      .toString(),
 
-        runs: data["runs"],
+  name: data["name"],
 
-        balls: data["balls"],
+  runs: data["runs"],
 
-        runsGiven:
-        data["runsGiven"],
+  balls: data["balls"],
 
-        ballsBowled:
-        data["ballsBowled"],
+  runsGiven:
+  data["runsGiven"],
 
-        wickets:
-        data["wickets"],
-      );
+  ballsBowled:
+  data["ballsBowled"],
+
+  wickets:
+  data["wickets"],
+);
 
     }).toList();
 

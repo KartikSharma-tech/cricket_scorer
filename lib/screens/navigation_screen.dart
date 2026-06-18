@@ -1,86 +1,257 @@
 import 'package:flutter/material.dart';
 
-import 'home_screen.dart';
+import '../services/match_storage_service.dart';
+
 import 'add_player_screen.dart';
+import 'live_score_screen.dart';
 import 'start_match_screen.dart';
 
-class NavigationScreen
-    extends StatefulWidget {
+class NavigationScreen extends StatefulWidget {
 
   const NavigationScreen({
     super.key,
   });
 
   @override
-  State<NavigationScreen>
-  createState() =>
-
+  State<NavigationScreen> createState() =>
       _NavigationScreenState();
 }
 
 class _NavigationScreenState
     extends State<NavigationScreen> {
 
-  int currentIndex = 0;
+  bool hasLiveMatch = false;
 
-  List<Widget> pages = [
+  bool isLoading = true;
 
-    const HomeScreen(),
+  @override
+  void initState() {
+    super.initState();
 
-    const AddPlayerScreen(),
+    checkLiveMatch();
+  }
 
-    const StartMatchScreen(),
-  ];
+  // =========================
+  // CHECK LIVE MATCH
+  // =========================
+
+  Future<void> checkLiveMatch() async {
+
+    bool matchExists =
+
+    await MatchStorageService
+        .loadMatch();
+
+    setState(() {
+
+      hasLiveMatch =
+          matchExists;
+
+      isLoading = false;
+    });
+  }
+
+  // =========================
+  // BUTTON
+  // =========================
+
+  Widget homeButton({
+
+    required String title,
+
+    required IconData icon,
+
+    required VoidCallback onTap,
+
+    Color color = Colors.blue,
+
+  }) {
+
+    return SizedBox(
+
+      width: double.infinity,
+
+      height: 70,
+
+      child: ElevatedButton.icon(
+
+        style:
+        ElevatedButton.styleFrom(
+
+          backgroundColor: color,
+
+          shape:
+          RoundedRectangleBorder(
+
+            borderRadius:
+            BorderRadius.circular(
+              18,
+            ),
+          ),
+        ),
+
+        onPressed: onTap,
+
+        icon: Icon(
+          icon,
+          color: Colors.white,
+        ),
+
+        label: Text(
+
+          title,
+
+          style: const TextStyle(
+
+            fontSize: 20,
+
+            color: Colors.white,
+
+            fontWeight:
+            FontWeight.bold,
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
 
     return Scaffold(
 
-      body: pages[currentIndex],
+      appBar: AppBar(
 
-      bottomNavigationBar:
-      BottomNavigationBar(
+        title: const Text(
+          "Cricket Scorer",
+        ),
 
-        currentIndex: currentIndex,
+        centerTitle: true,
+      ),
 
-        onTap: (index){
+      body: isLoading
 
-          setState(() {
+          ? const Center(
+        child:
+        CircularProgressIndicator(),
+      )
 
-            currentIndex = index;
-          });
-        },
+          : Padding(
 
-        items: const [
+        padding:
+        const EdgeInsets.all(20),
 
-          BottomNavigationBarItem(
+        child: Column(
 
-            icon: Icon(
-              Icons.home,
+          children: [
+
+            const SizedBox(
+              height: 20,
             ),
 
-            label: "Home",
-          ),
+            // RESUME MATCH
 
-          BottomNavigationBarItem(
+            if(hasLiveMatch)
 
-            icon: Icon(
-              Icons.person_add,
+              homeButton(
+
+                title: "Resume Match",
+
+                icon: Icons.play_circle,
+
+                color: Colors.orange,
+
+                onTap: () {
+
+                  Navigator.push(
+
+                    context,
+
+                    MaterialPageRoute(
+
+                      builder: (context) {
+
+                        return const
+                        LiveScoreScreen();
+                      },
+                    ),
+                  ).then((value){
+
+                    checkLiveMatch();
+                  });
+                },
+              ),
+
+            if(hasLiveMatch)
+
+              const SizedBox(
+                height: 20,
+              ),
+
+            // START MATCH
+
+            homeButton(
+
+              title: "Start Match",
+
+              icon: Icons.sports_cricket,
+
+              color: Colors.green,
+
+              onTap: () {
+
+                Navigator.push(
+
+                  context,
+
+                  MaterialPageRoute(
+
+                    builder: (context) {
+
+                      return const
+                      StartMatchScreen();
+                    },
+                  ),
+                ).then((value){
+
+                  checkLiveMatch();
+                });
+              },
             ),
 
-            label: "Players",
-          ),
-
-          BottomNavigationBarItem(
-
-            icon: Icon(
-              Icons.sports_cricket,
+            const SizedBox(
+              height: 20,
             ),
 
-            label: "Match",
-          ),
-        ],
+            // ADD PLAYERS
+
+            homeButton(
+
+              title: "Add Players",
+
+              icon: Icons.person_add,
+
+              color: Colors.blue,
+
+              onTap: () {
+
+                Navigator.push(
+
+                  context,
+
+                  MaterialPageRoute(
+
+                    builder: (context) {
+
+                      return const
+                      AddPlayerScreen();
+                    },
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
       ),
     );
   }

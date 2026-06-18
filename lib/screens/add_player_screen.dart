@@ -2,70 +2,55 @@ import 'package:flutter/material.dart';
 
 import '../models/player_model.dart';
 import '../services/player_service.dart';
-import '../services/storage_service.dart';
 
 class AddPlayerScreen extends StatefulWidget {
   const AddPlayerScreen({super.key});
 
   @override
-  State<AddPlayerScreen> createState() =>
-      _AddPlayerScreenState();
+  State<AddPlayerScreen> createState() => _AddPlayerScreenState();
 }
 
-class _AddPlayerScreenState
-    extends State<AddPlayerScreen> {
+class _AddPlayerScreenState extends State<AddPlayerScreen> {
 
-  final TextEditingController
-  playerController =
-  TextEditingController();
+  final TextEditingController nameController =
+      TextEditingController();
 
   List<PlayerModel> players = [];
 
   @override
   void initState() {
-
     super.initState();
 
     loadPlayers();
   }
 
   // LOAD PLAYERS
+  void loadPlayers() {
 
-  void loadPlayers() async {
+    players = PlayerService.getPlayers();
 
-    List<PlayerModel> loadedPlayers =
-
-    await StorageService.loadPlayers();
-
-    setState(() {
-
-      players = loadedPlayers;
-
-      PlayerService.allPlayers =
-          loadedPlayers;
-    });
+    setState(() {});
   }
 
   // ADD PLAYER
-
-  void addPlayer() async {
+  Future<void> addPlayer() async {
 
     String name =
-    playerController.text.trim();
+        nameController.text.trim();
 
     if(name.isEmpty){
       return;
     }
 
-    bool alreadyExists =
+    // CHECK DUPLICATE
+    bool alreadyExists = players.any(
+      (player) {
 
-    players.any((player){
-
-      return player.name
-          .toLowerCase() ==
-
-          name.toLowerCase();
-    });
+        return player.name
+            .toLowerCase() ==
+            name.toLowerCase();
+      },
+    );
 
     if(alreadyExists){
 
@@ -73,7 +58,6 @@ class _AddPlayerScreenState
           .showSnackBar(
 
         const SnackBar(
-
           content: Text(
             "Player already exists",
           ),
@@ -83,39 +67,23 @@ class _AddPlayerScreenState
       return;
     }
 
-    PlayerModel newPlayer =
-    PlayerModel(name: name);
+    await PlayerService.addPlayer(name);
 
-    setState(() {
+    nameController.clear();
 
-      players.add(newPlayer);
-
-      PlayerService.allPlayers =
-          players;
-    });
-
-    // SAVE PLAYERS
-
-    await StorageService
-        .savePlayers(players);
-
-    playerController.clear();
+    loadPlayers();
   }
 
   // DELETE PLAYER
+  Future<void> deletePlayer(
+    int index,
+  ) async {
 
-  void deletePlayer(int index) async {
+    await PlayerService.deletePlayer(
+      index,
+    );
 
-    setState(() {
-
-      players.removeAt(index);
-
-      PlayerService.allPlayers =
-          players;
-    });
-
-    await StorageService
-        .savePlayers(players);
+    loadPlayers();
   }
 
   @override
@@ -124,7 +92,6 @@ class _AddPlayerScreenState
     return Scaffold(
 
       appBar: AppBar(
-
         title: const Text(
           "Add Players",
         ),
@@ -132,50 +99,28 @@ class _AddPlayerScreenState
 
       body: Padding(
 
-        padding:
-        const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(16),
 
         child: Column(
 
           children: [
 
             // TEXTFIELD
-
             TextField(
+              controller: nameController,
 
-              controller:
-              playerController,
+              decoration: InputDecoration(
 
-              decoration:
-              InputDecoration(
+                hintText: "Enter player name",
 
-                hintText:
-                "Enter Player Name",
-
-                filled: true,
-
-                fillColor:
-                const Color(
-                  0xff1E293B,
-                ),
-
-                border:
-                OutlineInputBorder(
-
+                border: OutlineInputBorder(
                   borderRadius:
-                  BorderRadius.circular(
-                    15,
-                  ),
-
-                  borderSide:
-                  BorderSide.none,
+                  BorderRadius.circular(12),
                 ),
 
                 suffixIcon: IconButton(
 
-                  onPressed: (){
-                    addPlayer();
-                  },
+                  onPressed: addPlayer,
 
                   icon: const Icon(
                     Icons.add,
@@ -184,83 +129,57 @@ class _AddPlayerScreenState
               ),
             ),
 
-            const SizedBox(
-              height: 25,
-            ),
+            const SizedBox(height: 20),
 
-            // PLAYERS LIST
-
+            // PLAYER LIST
             Expanded(
 
               child: players.isEmpty
 
-                  ?
-
-              const Center(
-
+                  ? const Center(
                 child: Text(
                   "No Players Added",
                 ),
               )
 
-                  :
+                  : ListView.builder(
 
-              ListView.builder(
+                itemCount: players.length,
 
-                itemCount:
-                players.length,
+                itemBuilder: (
+                    context,
+                    index,
+                    ){
 
-                itemBuilder:
-                    (context, index){
-
-                  PlayerModel player =
+                  final player =
                   players[index];
 
-                  return Container(
-
-                    margin:
-                    const EdgeInsets.only(
-                      bottom: 15,
-                    ),
-
-                    decoration:
-                    BoxDecoration(
-
-                      color:
-                      const Color(
-                        0xff1E293B,
-                      ),
-
-                      borderRadius:
-                      BorderRadius.circular(
-                        18,
-                      ),
-                    ),
+                  return Card(
 
                     child: ListTile(
 
-                      leading:
-                      CircleAvatar(
-
-                        backgroundColor:
-                        Colors.green,
-
+                      leading: CircleAvatar(
                         child: Text(
-
                           player.name[0]
                               .toUpperCase(),
                         ),
                       ),
 
-                      title:
-                      Text(player.name),
+                      title: Text(
+                        player.name,
+                      ),
 
-                      trailing:
-                      IconButton(
+                      subtitle: Text(
+                        player.role,
+                      ),
 
-                        onPressed: (){
+                      trailing: IconButton(
 
-                          deletePlayer(index);
+                        onPressed: () {
+
+                          deletePlayer(
+                            index,
+                          );
                         },
 
                         icon: const Icon(

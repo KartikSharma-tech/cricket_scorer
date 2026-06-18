@@ -1,8 +1,18 @@
 import 'package:flutter/material.dart';
 
+import 'package:hive_flutter/hive_flutter.dart';
+import 'services/hive_service.dart';
 import 'screens/navigation_screen.dart';
 
-void main() {
+void main() async {
+
+  WidgetsFlutterBinding
+      .ensureInitialized();
+
+  // HIVE INIT
+
+  await Hive.initFlutter();
+  await HiveService.openBoxes();
 
   runApp(
     const CricketScorerApp(),
@@ -24,12 +34,7 @@ class CricketScorerApp
       debugShowCheckedModeBanner:
       false,
 
-      title: "Cricket Scorer",
-
-      theme: ThemeData(
-
-        brightness:
-        Brightness.dark,
+      theme: ThemeData.dark().copyWith(
 
         scaffoldBackgroundColor:
         const Color(0xff0F172A),
@@ -39,8 +44,20 @@ class CricketScorerApp
 
           backgroundColor:
           Color(0xff1E293B),
+        ),
 
-          centerTitle: true,
+        elevatedButtonTheme:
+        ElevatedButtonThemeData(
+
+          style:
+          ElevatedButton.styleFrom(
+
+            backgroundColor:
+            const Color(0xff2563EB),
+
+            foregroundColor:
+            Colors.white,
+          ),
         ),
 
         inputDecorationTheme:
