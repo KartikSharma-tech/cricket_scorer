@@ -1,9 +1,9 @@
-
 import 'package:flutter/material.dart';
 
 import '../models/player_model.dart';
 
 import '../services/match_service.dart';
+import '../services/match_storage_service.dart';
 
 import 'live_score_screen.dart';
 
@@ -35,33 +35,82 @@ class MatchSetupScreen
 class _MatchSetupScreenState
     extends State<MatchSetupScreen> {
 
-  PlayerModel? striker;
+  // =========================
+  // SELECTED PLAYERS
+  // =========================
 
-  PlayerModel? nonStriker;
+  PlayerModel?
+  selectedStriker;
 
-  PlayerModel? bowler;
+  PlayerModel?
+  selectedNonStriker;
 
-  @override
-  void initState() {
+  PlayerModel?
+  selectedBowler;
 
-    super.initState();
+  // =========================
+  // START MATCH
+  // =========================
 
-    striker =
-    widget.battingPlayers.first;
+  Future<void>
+  startMatch() async {
 
-    nonStriker =
-    widget.battingPlayers.length > 1
+    if(
 
-        ?
+    selectedStriker == null ||
 
-    widget.battingPlayers[1]
+        selectedNonStriker == null ||
 
-        :
+        selectedBowler == null
 
-    widget.battingPlayers.first;
+    ){
 
-    bowler =
-    widget.bowlingPlayers.first;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(
+
+        const SnackBar(
+
+          content: Text(
+            "Select all players",
+          ),
+        ),
+      );
+
+      return;
+    }
+
+    // SAVE PLAYERS
+
+    MatchService.striker =
+        selectedStriker;
+
+    MatchService.nonStriker =
+        selectedNonStriker;
+
+    MatchService.currentBowler =
+        selectedBowler;
+
+    // SAVE MATCH
+
+    await MatchStorageService
+        .saveMatch();
+
+    // OPEN LIVE SCORE
+
+    Navigator.pushReplacement(
+
+      context,
+
+      MaterialPageRoute(
+
+        builder: (context){
+
+          return const
+          LiveScoreScreen();
+        },
+      ),
+    );
   }
 
   @override
@@ -74,35 +123,51 @@ class _MatchSetupScreenState
         title: const Text(
           "Match Setup",
         ),
+
+        centerTitle: true,
       ),
 
-      body: Padding(
+      body: SingleChildScrollView(
 
         padding:
         const EdgeInsets.all(20),
 
         child: Column(
 
+          crossAxisAlignment:
+          CrossAxisAlignment.start,
+
           children: [
 
+            // =========================
             // STRIKER
+            // =========================
 
-            DropdownButtonFormField<PlayerModel>(
+            const Text(
 
-              initialValue: striker,
+              "Select Striker",
+
+              style: TextStyle(
+
+                fontSize: 20,
+
+                fontWeight:
+                FontWeight.bold,
+              ),
+            ),
+
+            const SizedBox(
+              height: 10,
+            ),
+
+            DropdownButtonFormField<
+                PlayerModel>(
+
+              value:
+              selectedStriker,
 
               decoration:
               InputDecoration(
-
-                labelText:
-                "Select Striker",
-
-                filled: true,
-
-                fillColor:
-                const Color(
-                  0xff1E293B,
-                ),
 
                 border:
                 OutlineInputBorder(
@@ -111,9 +176,6 @@ class _MatchSetupScreenState
                   BorderRadius.circular(
                     15,
                   ),
-
-                  borderSide:
-                  BorderSide.none,
                 ),
               ),
 
@@ -136,7 +198,17 @@ class _MatchSetupScreenState
 
                 setState(() {
 
-                  striker = value;
+                  selectedStriker =
+                      value;
+
+                  // SAME PLAYER FIX
+
+                  if(selectedStriker ==
+                      selectedNonStriker){
+
+                    selectedNonStriker =
+                    null;
+                  }
                 });
               },
             ),
@@ -145,24 +217,35 @@ class _MatchSetupScreenState
               height: 25,
             ),
 
+            // =========================
             // NON STRIKER
+            // =========================
 
-            DropdownButtonFormField<PlayerModel>(
+            const Text(
 
-              initialValue: nonStriker,
+              "Select Non Striker",
+
+              style: TextStyle(
+
+                fontSize: 20,
+
+                fontWeight:
+                FontWeight.bold,
+              ),
+            ),
+
+            const SizedBox(
+              height: 10,
+            ),
+
+            DropdownButtonFormField<
+                PlayerModel>(
+
+              value:
+              selectedNonStriker,
 
               decoration:
               InputDecoration(
-
-                labelText:
-                "Select Non-Striker",
-
-                filled: true,
-
-                fillColor:
-                const Color(
-                  0xff1E293B,
-                ),
 
                 border:
                 OutlineInputBorder(
@@ -171,16 +254,18 @@ class _MatchSetupScreenState
                   BorderRadius.circular(
                     15,
                   ),
-
-                  borderSide:
-                  BorderSide.none,
                 ),
               ),
 
               items:
 
               widget.battingPlayers
-                  .map((player){
+                  .where((player){
+
+                return player !=
+                    selectedStriker;
+
+              }).map((player){
 
                 return DropdownMenuItem(
 
@@ -196,7 +281,8 @@ class _MatchSetupScreenState
 
                 setState(() {
 
-                  nonStriker = value;
+                  selectedNonStriker =
+                      value;
                 });
               },
             ),
@@ -205,24 +291,35 @@ class _MatchSetupScreenState
               height: 25,
             ),
 
+            // =========================
             // BOWLER
+            // =========================
 
-            DropdownButtonFormField<PlayerModel>(
+            const Text(
 
-              initialValue: bowler,
+              "Select Opening Bowler",
+
+              style: TextStyle(
+
+                fontSize: 20,
+
+                fontWeight:
+                FontWeight.bold,
+              ),
+            ),
+
+            const SizedBox(
+              height: 10,
+            ),
+
+            DropdownButtonFormField<
+                PlayerModel>(
+
+              value:
+              selectedBowler,
 
               decoration:
               InputDecoration(
-
-                labelText:
-                "Select Opening Bowler",
-
-                filled: true,
-
-                fillColor:
-                const Color(
-                  0xff1E293B,
-                ),
 
                 border:
                 OutlineInputBorder(
@@ -231,9 +328,6 @@ class _MatchSetupScreenState
                   BorderRadius.circular(
                     15,
                   ),
-
-                  borderSide:
-                  BorderSide.none,
                 ),
               ),
 
@@ -256,14 +350,19 @@ class _MatchSetupScreenState
 
                 setState(() {
 
-                  bowler = value;
+                  selectedBowler =
+                      value;
                 });
               },
             ),
 
-            const Spacer(),
+            const SizedBox(
+              height: 40,
+            ),
 
-            // START MATCH BUTTON
+            // =========================
+            // START BUTTON
+            // =========================
 
             SizedBox(
 
@@ -290,80 +389,8 @@ class _MatchSetupScreenState
                   ),
                 ),
 
-                onPressed: () {
-
-                  // VALIDATION
-
-                  if(
-
-                  striker == null ||
-
-                      nonStriker == null ||
-
-                      bowler == null
-
-                  ){
-
-                    ScaffoldMessenger.of(
-                      context,
-                    ).showSnackBar(
-
-                      const SnackBar(
-
-                        content: Text(
-                          "Select all players",
-                        ),
-                      ),
-                    );
-
-                    return;
-                  }
-
-                  // SAME PLAYER CHECK
-
-                  if(striker == nonStriker){
-
-                    ScaffoldMessenger.of(
-                      context,
-                    ).showSnackBar(
-
-                      const SnackBar(
-
-                        content: Text(
-                          "Striker and Non-Striker cannot be same",
-                        ),
-                      ),
-                    );
-
-                    return;
-                  }
-
-                  // SAVE MATCH DATA
-
-                  MatchService.striker =
-                      striker;
-
-                  MatchService.nonStriker =
-                      nonStriker;
-
-                  MatchService.currentBowler =
-                      bowler;
-
-                  // OPEN LIVE MATCH
-
-                  Navigator.pushReplacement(
-
-                    context,
-
-                    MaterialPageRoute(
-
-                      builder:
-                          (context) =>
-
-                      const LiveScoreScreen(),
-                    ),
-                  );
-                },
+                onPressed:
+                startMatch,
 
                 child: const Text(
 
@@ -371,7 +398,7 @@ class _MatchSetupScreenState
 
                   style: TextStyle(
 
-                    fontSize: 22,
+                    fontSize: 20,
 
                     color:
                     Colors.white,

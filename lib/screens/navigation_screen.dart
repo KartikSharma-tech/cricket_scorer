@@ -1,28 +1,43 @@
+// ```dart id="bzy0g4"
 import 'package:flutter/material.dart';
 
 import '../services/match_storage_service.dart';
 
 import 'add_player_screen.dart';
 import 'live_score_screen.dart';
+import 'match_history_screen.dart';
 import 'start_match_screen.dart';
 
-class NavigationScreen extends StatefulWidget {
+class NavigationScreen
+    extends StatefulWidget {
 
-  const NavigationScreen({
+  NavigationScreen({
     super.key,
   });
 
   @override
-  State<NavigationScreen> createState() =>
+  State<NavigationScreen>
+  createState() =>
+
       _NavigationScreenState();
 }
 
 class _NavigationScreenState
     extends State<NavigationScreen> {
 
+  // =========================
+  // INDEX
+  // =========================
+
+  int currentIndex = 0;
+
   bool hasLiveMatch = false;
 
   bool isLoading = true;
+
+  // =========================
+  // INIT
+  // =========================
 
   @override
   void initState() {
@@ -32,15 +47,16 @@ class _NavigationScreenState
   }
 
   // =========================
-  // CHECK LIVE MATCH
+  // CHECK MATCH
   // =========================
 
-  Future<void> checkLiveMatch() async {
+  Future<void>
+  checkLiveMatch() async {
 
     bool matchExists =
 
     await MatchStorageService
-        .loadMatch();
+        .hasSavedMatch();
 
     setState(() {
 
@@ -49,6 +65,192 @@ class _NavigationScreenState
 
       isLoading = false;
     });
+  }
+
+  // =========================
+  // PAGES
+  // =========================
+
+  List<Widget> get pages => [
+
+    homePage(),
+
+    const AddPlayerScreen(),
+
+    const MatchHistoryScreen(),
+  ];
+
+  // =========================
+  // HOME PAGE
+  // =========================
+
+  Widget homePage(){
+
+    return Padding(
+
+      padding:
+      const EdgeInsets.all(20),
+
+      child: Column(
+
+        children: [
+
+          const SizedBox(
+            height: 20,
+          ),
+
+          // RESUME MATCH
+
+          if(hasLiveMatch)
+
+            homeButton(
+
+              title:
+              "Resume Match",
+
+              icon:
+              Icons.play_circle,
+
+              color:
+              Colors.orange,
+
+              onTap: () async {
+
+                await MatchStorageService
+                    .loadMatch();
+
+                if(context.mounted){
+
+                  Navigator.push(
+
+                    context,
+
+                    MaterialPageRoute(
+
+                      builder:
+                          (context){
+
+                        return const
+                        LiveScoreScreen();
+                      },
+                    ),
+                  ).then((value){
+
+                    checkLiveMatch();
+                  });
+                }
+              },
+            ),
+
+          if(hasLiveMatch)
+
+            const SizedBox(
+              height: 20,
+            ),
+
+          // START MATCH
+
+          homeButton(
+
+            title:
+            "Start Match",
+
+            icon:
+            Icons.sports_cricket,
+
+            color:
+            Colors.green,
+
+            onTap: () {
+
+              Navigator.push(
+
+                context,
+
+                MaterialPageRoute(
+
+                  builder:
+                      (context){
+
+                    return const
+                    StartMatchScreen();
+                  },
+                ),
+              ).then((value){
+
+                checkLiveMatch();
+              });
+            },
+          ),
+
+          const Spacer(),
+
+          const Icon(
+
+            Icons.sports_cricket,
+
+            size: 90,
+
+            color: Colors.green,
+          ),
+
+          const SizedBox(
+            height: 20,
+          ),
+
+          const Text(
+
+            "Cricket Scorer App",
+
+            style: TextStyle(
+
+              fontSize: 26,
+
+              fontWeight:
+              FontWeight.bold,
+            ),
+          ),
+
+          const SizedBox(
+            height: 10,
+          ),
+
+          Text(
+
+            hasLiveMatch
+
+                ?
+
+            "Live Match Available"
+
+                :
+
+            "No Active Match",
+
+            style: TextStyle(
+
+              fontSize: 18,
+
+              color:
+
+              hasLiveMatch
+
+                  ?
+
+              Colors.orange
+
+                  :
+
+              Colors.grey,
+            ),
+          ),
+
+          const SizedBox(
+            height: 30,
+          ),
+        ],
+      ),
+    );
   }
 
   // =========================
@@ -61,24 +263,26 @@ class _NavigationScreenState
 
     required IconData icon,
 
-    required VoidCallback onTap,
+    required Color color,
 
-    Color color = Colors.blue,
+    required VoidCallback onTap,
 
   }) {
 
     return SizedBox(
 
-      width: double.infinity,
+      width:
+      double.infinity,
 
-      height: 70,
+      height: 75,
 
       child: ElevatedButton.icon(
 
         style:
         ElevatedButton.styleFrom(
 
-          backgroundColor: color,
+          backgroundColor:
+          color,
 
           shape:
           RoundedRectangleBorder(
@@ -105,7 +309,8 @@ class _NavigationScreenState
 
             fontSize: 20,
 
-            color: Colors.white,
+            color:
+            Colors.white,
 
             fontWeight:
             FontWeight.bold,
@@ -136,122 +341,56 @@ class _NavigationScreenState
         CircularProgressIndicator(),
       )
 
-          : Padding(
+          : pages[currentIndex],
 
-        padding:
-        const EdgeInsets.all(20),
+      bottomNavigationBar:
 
-        child: Column(
+      BottomNavigationBar(
 
-          children: [
+        currentIndex:
+        currentIndex,
 
-            const SizedBox(
-              height: 20,
+        onTap: (index){
+
+          setState(() {
+
+            currentIndex =
+                index;
+          });
+        },
+
+        selectedItemColor:
+        Colors.green,
+
+        items: const [
+
+          BottomNavigationBarItem(
+
+            icon: Icon(
+              Icons.home,
             ),
 
-            // RESUME MATCH
+            label: "Home",
+          ),
 
-            if(hasLiveMatch)
+          BottomNavigationBarItem(
 
-              homeButton(
-
-                title: "Resume Match",
-
-                icon: Icons.play_circle,
-
-                color: Colors.orange,
-
-                onTap: () {
-
-                  Navigator.push(
-
-                    context,
-
-                    MaterialPageRoute(
-
-                      builder: (context) {
-
-                        return const
-                        LiveScoreScreen();
-                      },
-                    ),
-                  ).then((value){
-
-                    checkLiveMatch();
-                  });
-                },
-              ),
-
-            if(hasLiveMatch)
-
-              const SizedBox(
-                height: 20,
-              ),
-
-            // START MATCH
-
-            homeButton(
-
-              title: "Start Match",
-
-              icon: Icons.sports_cricket,
-
-              color: Colors.green,
-
-              onTap: () {
-
-                Navigator.push(
-
-                  context,
-
-                  MaterialPageRoute(
-
-                    builder: (context) {
-
-                      return const
-                      StartMatchScreen();
-                    },
-                  ),
-                ).then((value){
-
-                  checkLiveMatch();
-                });
-              },
+            icon: Icon(
+              Icons.people,
             ),
 
-            const SizedBox(
-              height: 20,
+            label: "Players",
+          ),
+
+          BottomNavigationBarItem(
+
+            icon: Icon(
+              Icons.history,
             ),
 
-            // ADD PLAYERS
-
-            homeButton(
-
-              title: "Add Players",
-
-              icon: Icons.person_add,
-
-              color: Colors.blue,
-
-              onTap: () {
-
-                Navigator.push(
-
-                  context,
-
-                  MaterialPageRoute(
-
-                    builder: (context) {
-
-                      return const
-                      AddPlayerScreen();
-                    },
-                  ),
-                );
-              },
-            ),
-          ],
-        ),
+            label: "History",
+          ),
+        ],
       ),
     );
   }

@@ -1,3 +1,4 @@
+// ```dart
 import 'package:flutter/material.dart';
 
 import '../models/player_model.dart';
@@ -32,7 +33,7 @@ class _LiveScoreScreenState
       MatchService.currentBowler!;
 
   // =========================
-  // STRIKE CHANGE
+  // SWAP STRIKE
   // =========================
 
   void swapStrike(){
@@ -48,7 +49,7 @@ class _LiveScoreScreenState
   }
 
   // =========================
-  // CHECK MATCH RESULT
+  // CHECK RESULT
   // =========================
 
   void checkMatchResult(){
@@ -59,6 +60,57 @@ class _LiveScoreScreenState
 
       showInningsCompleteDialog();
     }
+  }
+
+  // =========================
+  // COMPLETE OVER
+  // =========================
+
+  void completeOver(){
+
+    MatchService.over++;
+
+    MatchService.ball = 0;
+
+    bool soloPlayer =
+
+        MatchService.wickets >=
+
+            MatchService
+                .battingPlayers
+                .length - 2;
+
+    if(!soloPlayer){
+
+      swapStrike();
+    }
+
+    // MATCH END
+
+    if(
+
+    MatchService.over >=
+        MatchService.totalOvers
+
+    ){
+
+      if(
+
+      MatchService.isSecondInnings
+
+      ){
+
+        checkMatchResult();
+
+      }else{
+
+        showInningsCompleteDialog();
+      }
+
+      return;
+    }
+
+    showBowlerDialog();
   }
 
   // =========================
@@ -91,73 +143,39 @@ class _LiveScoreScreenState
 
               MatchService
                   .battingPlayers
-                  .length - 1;
+                  .length - 2;
 
       // STRIKE ROTATE
 
-      if(!soloPlayer){
+      if(
 
-        if(
+      !soloPlayer &&
 
-        run == 1 ||
-            run == 3 ||
-            run == 5
+          (run == 1 ||
+              run == 3 ||
+              run == 5)
 
-        ){
+      ){
 
-          swapStrike();
-        }
+        swapStrike();
       }
 
       // OVER COMPLETE
 
       if(MatchService.ball == 6){
 
-        MatchService.over++;
-
-        MatchService.ball = 0;
-
-        if(!soloPlayer){
-
-          swapStrike();
-        }
-
-        // OVERS END
-
-        if(
-
-        MatchService.over >=
-            MatchService.totalOvers
-
-        ){
-
-          if(
-
-          MatchService.isSecondInnings
-
-          ){
-
-            checkMatchResult();
-
-          }else{
-
-            showInningsCompleteDialog();
-          }
-
-          return;
-        }
-
-        showBowlerDialog();
+        completeOver();
       }
 
-      // SECOND INNINGS WIN CHECK
+      // RESULT CHECK
 
       if(MatchService.isSecondInnings){
 
         checkMatchResult();
       }
 
-      MatchStorageService.saveMatch();
+      MatchStorageService
+          .saveMatch();
     });
   }
 
@@ -184,7 +202,8 @@ class _LiveScoreScreenState
         checkMatchResult();
       }
 
-      MatchStorageService.saveMatch();
+      MatchStorageService
+          .saveMatch();
     });
   }
 
@@ -211,12 +230,13 @@ class _LiveScoreScreenState
         checkMatchResult();
       }
 
-      MatchStorageService.saveMatch();
+      MatchStorageService
+          .saveMatch();
     });
   }
 
   // =========================
-  // WICKET
+  // NORMAL WICKET
   // =========================
 
   void addWicket(){
@@ -248,7 +268,7 @@ class _LiveScoreScreenState
 
           MatchService
               .battingPlayers
-              .length
+              .length - 1
 
       ){
 
@@ -268,8 +288,6 @@ class _LiveScoreScreenState
         return;
       }
 
-      // REMAINING PLAYERS
-
       List<PlayerModel>
       remainingPlayers =
 
@@ -287,67 +305,20 @@ class _LiveScoreScreenState
 
       }).toList();
 
-      // NEW BATSMAN
-
       if(remainingPlayers.isNotEmpty){
 
         showNewBatsmanDialog(
-            remainingPlayers);
-
-      }else{
-
-        MatchService.striker =
-            MatchService.nonStriker;
+          remainingPlayers,
+        );
       }
-
-      // OVER COMPLETE
 
       if(MatchService.ball == 6){
 
-        MatchService.over++;
-
-        MatchService.ball = 0;
-
-        bool soloPlayer =
-
-            MatchService.wickets >=
-
-                MatchService
-                    .battingPlayers
-                    .length - 1;
-
-        if(!soloPlayer){
-
-          swapStrike();
-        }
-
-        if(
-
-        MatchService.over >=
-            MatchService.totalOvers
-
-        ){
-
-          if(
-
-          MatchService.isSecondInnings
-
-          ){
-
-            checkMatchResult();
-
-          }else{
-
-            showInningsCompleteDialog();
-          }
-
-          return;
-        }
-
-        showBowlerDialog();
+        completeOver();
       }
 
-      MatchStorageService.saveMatch();
+      MatchStorageService
+          .saveMatch();
     });
   }
 
@@ -361,16 +332,91 @@ class _LiveScoreScreenState
       return;
     }
 
+    showDialog(
+
+      context: context,
+
+      barrierDismissible: false,
+
+      builder: (context){
+
+        return AlertDialog(
+
+          title: const Text(
+            "Select Out Batsman",
+          ),
+
+          content: Column(
+
+            mainAxisSize:
+            MainAxisSize.min,
+
+            children: [
+
+              ListTile(
+
+                title:
+                Text(striker.name),
+
+                subtitle:
+                const Text(
+                  "Striker",
+                ),
+
+                onTap: (){
+
+                  Navigator.pop(context);
+
+                  processRunOut(
+                    striker,
+                  );
+                },
+              ),
+
+              ListTile(
+
+                title:
+                Text(nonStriker.name),
+
+                subtitle:
+                const Text(
+                  "Non Striker",
+                ),
+
+                onTap: (){
+
+                  Navigator.pop(context);
+
+                  processRunOut(
+                    nonStriker,
+                  );
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // =========================
+  // PROCESS RUN OUT
+  // =========================
+
+  void processRunOut(
+      PlayerModel outPlayer,
+      ){
+
     setState(() {
 
       MatchService.wickets++;
 
-      striker.balls++;
+      outPlayer.balls++;
 
       MatchService.ball++;
 
       MatchService.outPlayers
-          .add(striker);
+          .add(outPlayer);
 
       // ALL OUT
 
@@ -380,7 +426,7 @@ class _LiveScoreScreenState
 
           MatchService
               .battingPlayers
-              .length
+              .length - 1
 
       ){
 
@@ -400,8 +446,6 @@ class _LiveScoreScreenState
         return;
       }
 
-      // REMAINING PLAYERS
-
       List<PlayerModel>
       remainingPlayers =
 
@@ -415,109 +459,32 @@ class _LiveScoreScreenState
 
             &&
 
+            player != striker
+
+            &&
+
             player != nonStriker;
 
       }).toList();
 
       if(remainingPlayers.isNotEmpty){
 
-        showNewBatsmanDialog(
-            remainingPlayers);
+        showRunOutBatsmanDialog(
 
-      }else{
+          remainingPlayers,
 
-        MatchService.striker =
-            MatchService.nonStriker;
+          outPlayer,
+        );
       }
-
-      // OVER COMPLETE
 
       if(MatchService.ball == 6){
 
-        MatchService.over++;
-
-        MatchService.ball = 0;
-
-        showBowlerDialog();
+        completeOver();
       }
 
-      MatchStorageService.saveMatch();
+      MatchStorageService
+          .saveMatch();
     });
-  }
-
-  // =========================
-  // RUN RATE
-  // =========================
-
-  double getCurrentRunRate(){
-
-    return MatchService
-        .getCurrentRunRate();
-  }
-
-  double getRequiredRunRate(){
-
-    return MatchService
-        .getRequiredRunRate();
-  }
-
-  // =========================
-  // STRIKE RATE
-  // =========================
-
-  double getStrikeRate(
-      PlayerModel player){
-
-    if(player.balls == 0){
-      return 0;
-    }
-
-    return
-
-        (player.runs / player.balls)
-            * 100;
-  }
-
-  // =========================
-  // BOWLER OVERS
-  // =========================
-
-  String getBowlerOvers(){
-
-    int overs =
-
-        currentBowler
-            .ballsBowled ~/ 6;
-
-    int balls =
-
-        currentBowler
-            .ballsBowled % 6;
-
-    return "$overs.$balls";
-  }
-
-  // =========================
-  // ECONOMY
-  // =========================
-
-  double getEconomy(){
-
-    if(currentBowler
-        .ballsBowled == 0){
-
-      return 0;
-    }
-
-    double overs =
-
-        currentBowler
-            .ballsBowled / 6;
-
-    return
-
-        currentBowler.runsGiven
-            / overs;
   }
 
   // =========================
@@ -586,6 +553,85 @@ class _LiveScoreScreenState
   }
 
   // =========================
+  // RUN OUT NEW BATSMAN
+  // =========================
+
+  void showRunOutBatsmanDialog(
+
+      List<PlayerModel> players,
+
+      PlayerModel outPlayer,
+
+      ){
+
+    showDialog(
+
+      context: context,
+
+      barrierDismissible: false,
+
+      builder: (context){
+
+        return AlertDialog(
+
+          title: const Text(
+            "Select New Batsman",
+          ),
+
+          content: SizedBox(
+
+            width: double.maxFinite,
+
+            child: ListView.builder(
+
+              shrinkWrap: true,
+
+              itemCount:
+              players.length,
+
+              itemBuilder:
+                  (context, index){
+
+                PlayerModel player =
+                players[index];
+
+                return ListTile(
+
+                  title:
+                  Text(player.name),
+
+                  onTap: (){
+
+                    setState(() {
+
+                      if(outPlayer ==
+                          striker){
+
+                        MatchService.striker =
+                            player;
+
+                      }else{
+
+                        MatchService.nonStriker =
+                            player;
+                      }
+                    });
+
+                    MatchStorageService
+                        .saveMatch();
+
+                    Navigator.pop(context);
+                  },
+                );
+              },
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // =========================
   // BOWLER DIALOG
   // =========================
 
@@ -601,6 +647,10 @@ class _LiveScoreScreenState
           currentBowler;
 
     }).toList();
+
+    if(bowlers.isEmpty){
+      return;
+    }
 
     showDialog(
 
@@ -662,7 +712,375 @@ class _LiveScoreScreenState
   }
 
   // =========================
-  // SECOND INNINGS START
+  // STRIKE RATE
+  // =========================
+
+  double getStrikeRate(
+      PlayerModel player){
+
+    if(player.balls == 0){
+      return 0;
+    }
+
+    return
+
+        (player.runs / player.balls)
+            * 100;
+  }
+
+  // =========================
+  // BOWLER OVERS
+  // =========================
+
+  String getBowlerOvers(){
+
+    int overs =
+
+        currentBowler
+            .ballsBowled ~/ 6;
+
+    int balls =
+
+        currentBowler
+            .ballsBowled % 6;
+
+    return "$overs.$balls";
+  }
+
+  // =========================
+  // ECONOMY
+  // =========================
+
+  double getEconomy(){
+
+    if(currentBowler
+        .ballsBowled == 0){
+
+      return 0;
+    }
+
+    double overs =
+
+        currentBowler
+            .ballsBowled / 6;
+
+    return
+
+        currentBowler.runsGiven
+            / overs;
+  }
+
+  // =========================
+  // STAT BOX
+  // =========================
+
+  Widget statBox(
+      String title,
+      String value,
+      ){
+
+    return Column(
+
+      children: [
+
+        Text(
+
+          title,
+
+          style: const TextStyle(
+
+            color: Colors.white70,
+          ),
+        ),
+
+        const SizedBox(
+          height: 5,
+        ),
+
+        Text(
+
+          value,
+
+          style: const TextStyle(
+
+            fontSize: 18,
+
+            fontWeight:
+            FontWeight.bold,
+
+            color: Colors.white,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // =========================
+  // PLAYER CARD
+  // =========================
+
+  Widget playerCard({
+
+    required String title,
+
+    required PlayerModel player,
+
+    bool isStriker = false,
+
+  }){
+
+    return Container(
+
+      width: double.infinity,
+
+      padding:
+      const EdgeInsets.all(18),
+
+      decoration: BoxDecoration(
+
+        color:
+        const Color(
+          0xff1E293B,
+        ),
+
+        borderRadius:
+        BorderRadius.circular(
+          18,
+        ),
+      ),
+
+      child: Column(
+
+        crossAxisAlignment:
+        CrossAxisAlignment.start,
+
+        children: [
+
+          Text(
+
+            title,
+
+            style: const TextStyle(
+
+              fontSize: 18,
+
+              fontWeight:
+              FontWeight.bold,
+
+              color: Colors.orange,
+            ),
+          ),
+
+          const SizedBox(
+            height: 12,
+          ),
+
+          Row(
+
+            mainAxisAlignment:
+            MainAxisAlignment
+                .spaceBetween,
+
+            children: [
+
+              Expanded(
+
+                child: Text(
+
+                  isStriker
+
+                      ?
+
+                  "${player.name} *"
+
+                      :
+
+                  player.name,
+
+                  style: const TextStyle(
+
+                    fontSize: 24,
+
+                    fontWeight:
+                    FontWeight.bold,
+
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+
+              Text(
+
+                "${player.runs}"
+                    " (${player.balls})",
+
+                style: const TextStyle(
+
+                  fontSize: 22,
+
+                  fontWeight:
+                  FontWeight.bold,
+
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(
+            height: 10,
+          ),
+
+          Text(
+
+            "Strike Rate : "
+                "${getStrikeRate(player).toStringAsFixed(1)}",
+
+            style: const TextStyle(
+
+              color: Colors.white70,
+
+              fontSize: 16,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // =========================
+  // BOWLER CARD
+  // =========================
+
+  Widget bowlerCard(){
+
+    return Container(
+
+      width: double.infinity,
+
+      padding:
+      const EdgeInsets.all(18),
+
+      decoration: BoxDecoration(
+
+        color:
+        const Color(
+          0xff1E293B,
+        ),
+
+        borderRadius:
+        BorderRadius.circular(
+          18,
+        ),
+      ),
+
+      child: Column(
+
+        crossAxisAlignment:
+        CrossAxisAlignment.start,
+
+        children: [
+
+          const Text(
+
+            "Current Bowler",
+
+            style: TextStyle(
+
+              fontSize: 18,
+
+              fontWeight:
+              FontWeight.bold,
+
+              color: Colors.orange,
+            ),
+          ),
+
+          const SizedBox(
+            height: 12,
+          ),
+
+          Row(
+
+            mainAxisAlignment:
+            MainAxisAlignment
+                .spaceBetween,
+
+            children: [
+
+              Expanded(
+
+                child: Text(
+
+                  currentBowler.name,
+
+                  style: const TextStyle(
+
+                    fontSize: 24,
+
+                    fontWeight:
+                    FontWeight.bold,
+
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+
+              Text(
+
+                "${currentBowler.wickets}"
+                    "/"
+                    "${currentBowler.runsGiven}",
+
+                style: const TextStyle(
+
+                  fontSize: 22,
+
+                  fontWeight:
+                  FontWeight.bold,
+
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(
+            height: 10,
+          ),
+
+          Text(
+
+            "Overs : "
+                "${getBowlerOvers()}",
+
+            style: const TextStyle(
+
+              color: Colors.white70,
+            ),
+          ),
+
+          const SizedBox(
+            height: 5,
+          ),
+
+          Text(
+
+            "Economy : "
+                "${getEconomy().toStringAsFixed(2)}",
+
+            style: const TextStyle(
+
+              color: Colors.white70,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // =========================
+  // SECOND INNINGS
   // =========================
 
   void startSecondInnings(){
@@ -677,8 +1095,6 @@ class _LiveScoreScreenState
 
     MatchService.isSecondInnings =
     true;
-
-    // SWAP TEAMS
 
     List<PlayerModel>
     oldBatting =
@@ -735,12 +1151,10 @@ class _LiveScoreScreenState
 
                 child: Column(
 
-                  mainAxisSize:
-                  MainAxisSize.min,
-
                   children: [
 
-                    DropdownButton<PlayerModel>(
+                    DropdownButton<
+                        PlayerModel>(
 
                       isExpanded: true,
 
@@ -781,7 +1195,8 @@ class _LiveScoreScreenState
                       height: 15,
                     ),
 
-                    DropdownButton<PlayerModel>(
+                    DropdownButton<
+                        PlayerModel>(
 
                       isExpanded: true,
 
@@ -827,7 +1242,8 @@ class _LiveScoreScreenState
                       height: 15,
                     ),
 
-                    DropdownButton<PlayerModel>(
+                    DropdownButton<
+                        PlayerModel>(
 
                       isExpanded: true,
 
@@ -875,13 +1291,14 @@ class _LiveScoreScreenState
 
                     if(
 
-                    selectedStriker == null ||
+                    selectedStriker ==
+                        null ||
 
-                        selectedNonStriker
-                            == null ||
+                        selectedNonStriker ==
+                            null ||
 
-                        selectedBowler
-                            == null
+                        selectedBowler ==
+                            null
 
                     ){
 
@@ -919,7 +1336,7 @@ class _LiveScoreScreenState
   }
 
   // =========================
-  // INNINGS COMPLETE
+  // COMPLETE DIALOG
   // =========================
 
   void showInningsCompleteDialog(){
@@ -992,8 +1409,6 @@ class _LiveScoreScreenState
 
           actions: [
 
-            // START SECOND INNINGS
-
             if(
 
             !MatchService.isSecondInnings
@@ -1011,8 +1426,6 @@ class _LiveScoreScreenState
                   "Start 2nd Innings",
                 ),
               ),
-
-            // FINISH MATCH
 
             if(
 
@@ -1106,7 +1519,7 @@ class _LiveScoreScreenState
       body: SingleChildScrollView(
 
         padding:
-        const EdgeInsets.all(20),
+        const EdgeInsets.all(16),
 
         child: Column(
 
@@ -1116,14 +1529,12 @@ class _LiveScoreScreenState
 
             Container(
 
-              width:
-              double.infinity,
+              width: double.infinity,
 
               padding:
-              const EdgeInsets.all(25),
+              const EdgeInsets.all(20),
 
-              decoration:
-              BoxDecoration(
+              decoration: BoxDecoration(
 
                 color:
                 const Color(
@@ -1143,17 +1554,17 @@ class _LiveScoreScreenState
                   Text(
 
                     "${MatchService.totalRuns}"
-
                         "/"
-
                         "${MatchService.wickets}",
 
                     style: const TextStyle(
 
-                      fontSize: 40,
+                      fontSize: 45,
 
                       fontWeight:
                       FontWeight.bold,
+
+                      color: Colors.white,
                     ),
                   ),
 
@@ -1163,313 +1574,133 @@ class _LiveScoreScreenState
 
                   Text(
 
-                    "Overs : "
-
+                    "Overs "
                         "${MatchService.over}"
                         "."
                         "${MatchService.ball}"
-
                         " / "
-
                         "${MatchService.totalOvers}",
+
+                    style: const TextStyle(
+
+                      fontSize: 18,
+
+                      color: Colors.white70,
+                    ),
                   ),
 
                   const SizedBox(
-                    height: 10,
+                    height: 15,
+                  ),
+
+                  Row(
+
+                    mainAxisAlignment:
+                    MainAxisAlignment
+                        .spaceAround,
+
+                    children: [
+
+                      statBox(
+
+                        "CRR",
+
+                        MatchService
+                            .getCurrentRunRate()
+                            .toStringAsFixed(
+                          2,
+                        ),
+                      ),
+
+                      statBox(
+
+                        "RRR",
+
+                        MatchService
+                            .getRequiredRunRate()
+                            .toStringAsFixed(
+                          2,
+                        ),
+                      ),
+                    ],
                   ),
 
                   if(
 
-                  MatchService.isSecondInnings
+                  MatchService
+                      .isSecondInnings
 
                   )
 
-                    Text(
+                    Padding(
 
-                      "Target : ${MatchService.target}",
+                      padding:
+                      const EdgeInsets.only(
+                        top: 15,
+                      ),
+
+                      child: Text(
+
+                        "Need "
+                            "${MatchService.getRemainingRuns()}"
+                            " runs in "
+                            "${MatchService.getRemainingBalls()}"
+                            " balls",
+
+                        style: const TextStyle(
+
+                          fontSize: 17,
+
+                          color: Colors.orange,
+
+                          fontWeight:
+                          FontWeight.bold,
+                        ),
+                      ),
                     ),
-
-                  const SizedBox(
-                    height: 5,
-                  ),
-
-                  if(
-
-                  MatchService.isSecondInnings
-
-                  )
-
-                    Text(
-
-                      "Need "
-
-                          "${MatchService.getRemainingRuns()}"
-
-                          " runs in "
-
-                          "${MatchService.getRemainingBalls()}"
-
-                          " balls",
-                    ),
-
-                  const SizedBox(
-                    height: 10,
-                  ),
-
-                  Text(
-
-                    "CRR : "
-
-                        "${getCurrentRunRate().toStringAsFixed(2)}",
-                  ),
-
-                  const SizedBox(
-                    height: 5,
-                  ),
-
-                  Text(
-
-                    "RRR : "
-
-                        "${getRequiredRunRate().toStringAsFixed(2)}",
-                  ),
-
-                  const SizedBox(
-                    height: 10,
-                  ),
-
-                  Text(
-
-                    "Extras : "
-
-                        "${MatchService.getTotalExtras()}",
-                  ),
                 ],
               ),
             ),
+
+            const SizedBox(
+              height: 20,
+            ),
+
+            playerCard(
+
+              title: "Striker",
+
+              player: striker,
+
+              isStriker: true,
+            ),
+
+            const SizedBox(
+              height: 15,
+            ),
+
+            playerCard(
+
+              title: "Non Striker",
+
+              player: nonStriker,
+            ),
+
+            const SizedBox(
+              height: 15,
+            ),
+
+            bowlerCard(),
 
             const SizedBox(
               height: 25,
             ),
 
-            // STRIKER
-
-            Container(
-
-              width:
-              double.infinity,
-
-              padding:
-              const EdgeInsets.all(20),
-
-              decoration:
-              BoxDecoration(
-
-                color:
-                const Color(
-                  0xff1E293B,
-                ),
-
-                borderRadius:
-                BorderRadius.circular(
-                  20,
-                ),
-              ),
-
-              child: Column(
-
-                crossAxisAlignment:
-                CrossAxisAlignment.start,
-
-                children: [
-
-                  const Text(
-
-                    "Striker",
-
-                    style: TextStyle(
-
-                      fontSize: 22,
-
-                      fontWeight:
-                      FontWeight.bold,
-                    ),
-                  ),
-
-                  const SizedBox(
-                    height: 15,
-                  ),
-
-                  Text(striker.name),
-
-                  Text(
-                    "Runs : ${striker.runs}",
-                  ),
-
-                  Text(
-                    "Balls : ${striker.balls}",
-                  ),
-
-                  Text(
-                    "SR : ${getStrikeRate(striker).toStringAsFixed(1)}",
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(
-              height: 20,
-            ),
-
-            // NON STRIKER
-
-            Container(
-
-              width:
-              double.infinity,
-
-              padding:
-              const EdgeInsets.all(20),
-
-              decoration:
-              BoxDecoration(
-
-                color:
-                const Color(
-                  0xff1E293B,
-                ),
-
-                borderRadius:
-                BorderRadius.circular(
-                  20,
-                ),
-              ),
-
-              child: Column(
-
-                crossAxisAlignment:
-                CrossAxisAlignment.start,
-
-                children: [
-
-                  const Text(
-
-                    "Non Striker",
-
-                    style: TextStyle(
-
-                      fontSize: 22,
-
-                      fontWeight:
-                      FontWeight.bold,
-                    ),
-                  ),
-
-                  const SizedBox(
-                    height: 15,
-                  ),
-
-                  Text(nonStriker.name),
-
-                  Text(
-                    "Runs : ${nonStriker.runs}",
-                  ),
-
-                  Text(
-                    "Balls : ${nonStriker.balls}",
-                  ),
-
-                  Text(
-                    "SR : ${getStrikeRate(nonStriker).toStringAsFixed(1)}",
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(
-              height: 20,
-            ),
-
-            // BOWLER
-
-            Container(
-
-              width:
-              double.infinity,
-
-              padding:
-              const EdgeInsets.all(20),
-
-              decoration:
-              BoxDecoration(
-
-                color:
-                const Color(
-                  0xff1E293B,
-                ),
-
-                borderRadius:
-                BorderRadius.circular(
-                  20,
-                ),
-              ),
-
-              child: Column(
-
-                crossAxisAlignment:
-                CrossAxisAlignment.start,
-
-                children: [
-
-                  const Text(
-
-                    "Current Bowler",
-
-                    style: TextStyle(
-
-                      fontSize: 22,
-
-                      fontWeight:
-                      FontWeight.bold,
-                    ),
-                  ),
-
-                  const SizedBox(
-                    height: 15,
-                  ),
-
-                  Text(currentBowler.name),
-
-                  Text(
-                    "Runs Given : ${currentBowler.runsGiven}",
-                  ),
-
-                  Text(
-                    "Wickets : ${currentBowler.wickets}",
-                  ),
-
-                  Text(
-                    "Overs : ${getBowlerOvers()}",
-                  ),
-
-                  Text(
-                    "Economy : ${getEconomy().toStringAsFixed(1)}",
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(
-              height: 30,
-            ),
-
-            // BUTTONS
-
             Wrap(
 
-              spacing: 12,
+              spacing: 10,
 
-              runSpacing: 12,
+              runSpacing: 10,
 
               children: [
 
@@ -1516,7 +1747,7 @@ class _LiveScoreScreenState
             ),
 
             const SizedBox(
-              height: 30,
+              height: 25,
             ),
           ],
         ),

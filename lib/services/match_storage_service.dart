@@ -6,150 +6,124 @@ import '../models/player_model.dart';
 import 'match_service.dart';
 
 class MatchStorageService {
-
   // =========================
   // SAVE MATCH
   // =========================
 
-  static Future saveMatch() async {
-
-    SharedPreferences prefs =
-    await SharedPreferences.getInstance();
+  static Future<void> saveMatch() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
 
     // TEAM INFO
 
-    await prefs.setString(
-      "teamAName",
-      MatchService.teamAName,
-    );
+    await prefs.setString("teamAName", MatchService.teamAName);
 
-    await prefs.setString(
-      "teamBName",
-      MatchService.teamBName,
-    );
+    await prefs.setString("teamBName", MatchService.teamBName);
 
-    await prefs.setInt(
-      "totalOvers",
-      MatchService.totalOvers,
-    );
+    await prefs.setInt("totalOvers", MatchService.totalOvers);
 
     // SCORE
 
-    await prefs.setInt(
-      "totalRuns",
-      MatchService.totalRuns,
-    );
+    await prefs.setInt("totalRuns", MatchService.totalRuns);
 
-    await prefs.setInt(
-      "wickets",
-      MatchService.wickets,
-    );
+    await prefs.setInt("wickets", MatchService.wickets);
 
-    await prefs.setInt(
-      "over",
-      MatchService.over,
-    );
+    await prefs.setInt("over", MatchService.over);
 
-    await prefs.setInt(
-      "ball",
-      MatchService.ball,
-    );
+    await prefs.setInt("ball", MatchService.ball);
+
+    // EXTRAS
+
+    await prefs.setInt("wides", MatchService.wides);
+
+    await prefs.setInt("noBalls", MatchService.noBalls);
+
+    await prefs.setInt("byes", MatchService.byes);
+
+    await prefs.setInt("legByes", MatchService.legByes);
 
     // MATCH STATUS
 
-    await prefs.setBool(
-      "isSecondInnings",
-      MatchService.isSecondInnings,
-    );
+    await prefs.setBool("isSecondInnings", MatchService.isSecondInnings);
 
-    await prefs.setBool(
-      "isMatchEnded",
-      MatchService.isMatchEnded,
-    );
+    await prefs.setBool("isMatchEnded", MatchService.isMatchEnded);
 
-    await prefs.setInt(
-      "target",
-      MatchService.target,
-    );
+    await prefs.setInt("firstInningsScore", MatchService.firstInningsScore);
 
-    // PLAYERS
+    await prefs.setInt("target", MatchService.target);
 
-    await prefs.setString(
-      "striker",
-      MatchService.striker?.name ?? "",
-    );
+    await prefs.setString("resultText", MatchService.resultText);
+
+    // CURRENT PLAYERS
+
+    await prefs.setString("striker", MatchService.striker?.id ?? "");
+
+    await prefs.setString("nonStriker", MatchService.nonStriker?.id ?? "");
 
     await prefs.setString(
-      "nonStriker",
-      MatchService.nonStriker?.name ?? "",
+      "currentBowler",
+
+      MatchService.currentBowler?.id ?? "",
     );
 
-    await prefs.setString(
-      "bowler",
-      MatchService.currentBowler?.name ?? "",
-    );
+    // OUT PLAYERS
+
+    List<String> outPlayers = MatchService.outPlayers.map((player) {
+      return player.id;
+    }).toList();
+
+    await prefs.setStringList("outPlayers", outPlayers);
 
     // BATTING PLAYERS
 
-    List<String> battingPlayers =
-
-    MatchService.battingPlayers.map((player){
-
+    List<String> battingPlayers = MatchService.battingPlayers.map((player) {
       return jsonEncode({
+        "id": player.id,
 
         "name": player.name,
+
+        "role": player.role,
 
         "runs": player.runs,
 
         "balls": player.balls,
 
-        "runsGiven":
-        player.runsGiven,
+        "wickets": player.wickets,
 
-        "ballsBowled":
-        player.ballsBowled,
+        "runsGiven": player.runsGiven,
 
-        "wickets":
-        player.wickets,
+        "ballsBowled": player.ballsBowled,
+
+        "matches": player.matches,
       });
-
     }).toList();
 
-    await prefs.setStringList(
-      "battingPlayers",
-      battingPlayers,
-    );
+    await prefs.setStringList("battingPlayers", battingPlayers);
 
     // BOWLING PLAYERS
 
-    List<String> bowlingPlayers =
-
-    MatchService.bowlingPlayers.map((player){
-
+    List<String> bowlingPlayers = MatchService.bowlingPlayers.map((player) {
       return jsonEncode({
+        "id": player.id,
 
         "name": player.name,
+
+        "role": player.role,
 
         "runs": player.runs,
 
         "balls": player.balls,
 
-        "runsGiven":
-        player.runsGiven,
+        "wickets": player.wickets,
 
-        "ballsBowled":
-        player.ballsBowled,
+        "runsGiven": player.runsGiven,
 
-        "wickets":
-        player.wickets,
+        "ballsBowled": player.ballsBowled,
+
+        "matches": player.matches,
       });
-
     }).toList();
 
-    await prefs.setStringList(
-      "bowlingPlayers",
-      bowlingPlayers,
-    );
+    await prefs.setStringList("bowlingPlayers", bowlingPlayers);
   }
 
   // =========================
@@ -157,193 +131,149 @@ class MatchStorageService {
   // =========================
 
   static Future<bool> loadMatch() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
 
-    SharedPreferences prefs =
-    await SharedPreferences.getInstance();
+    String? teamAName = prefs.getString("teamAName");
 
-    String? teamAName =
-    prefs.getString("teamAName");
-
-    if(teamAName == null){
-
+    if (teamAName == null) {
       return false;
     }
 
     // TEAM INFO
 
-    MatchService.teamAName =
-        teamAName;
+    MatchService.teamAName = teamAName;
 
-    MatchService.teamBName =
-        prefs.getString(
-          "teamBName",
-        ) ?? "";
+    MatchService.teamBName = prefs.getString("teamBName") ?? "";
 
-    MatchService.totalOvers =
-        prefs.getInt(
-          "totalOvers",
-        ) ?? 0;
+    MatchService.totalOvers = prefs.getInt("totalOvers") ?? 0;
 
     // SCORE
 
-    MatchService.totalRuns =
-        prefs.getInt(
-          "totalRuns",
-        ) ?? 0;
+    MatchService.totalRuns = prefs.getInt("totalRuns") ?? 0;
 
-    MatchService.wickets =
-        prefs.getInt(
-          "wickets",
-        ) ?? 0;
+    MatchService.wickets = prefs.getInt("wickets") ?? 0;
 
-    MatchService.over =
-        prefs.getInt(
-          "over",
-        ) ?? 0;
+    MatchService.over = prefs.getInt("over") ?? 0;
 
-    MatchService.ball =
-        prefs.getInt(
-          "ball",
-        ) ?? 0;
+    MatchService.ball = prefs.getInt("ball") ?? 0;
 
-    // STATUS
+    // EXTRAS
 
-    MatchService.isSecondInnings =
-        prefs.getBool(
-          "isSecondInnings",
-        ) ?? false;
+    MatchService.wides = prefs.getInt("wides") ?? 0;
 
-    MatchService.isMatchEnded =
-        prefs.getBool(
-          "isMatchEnded",
-        ) ?? false;
+    MatchService.noBalls = prefs.getInt("noBalls") ?? 0;
 
-    MatchService.target =
-        prefs.getInt(
-          "target",
-        ) ?? 0;
+    MatchService.byes = prefs.getInt("byes") ?? 0;
+
+    MatchService.legByes = prefs.getInt("legByes") ?? 0;
+
+    // MATCH STATUS
+
+    MatchService.isSecondInnings = prefs.getBool("isSecondInnings") ?? false;
+
+    MatchService.isMatchEnded = prefs.getBool("isMatchEnded") ?? false;
+
+    MatchService.firstInningsScore = prefs.getInt("firstInningsScore") ?? 0;
+
+    MatchService.target = prefs.getInt("target") ?? 0;
+
+    MatchService.resultText = prefs.getString("resultText") ?? "";
 
     // PLAYERS
 
     List<String> battingPlayersData =
-
-    prefs.getStringList(
-      "battingPlayers",
-    ) ?? [];
+        prefs.getStringList("battingPlayers") ?? [];
 
     List<String> bowlingPlayersData =
+        prefs.getStringList("bowlingPlayers") ?? [];
 
-    prefs.getStringList(
-      "bowlingPlayers",
-    ) ?? [];
+    // BATTING PLAYERS
 
-    MatchService.battingPlayers =
-
-    battingPlayersData.map((player){
-
-      Map<String, dynamic> data =
-
-      jsonDecode(player);
+    MatchService.battingPlayers = battingPlayersData.map((player) {
+      Map<String, dynamic> data = jsonDecode(player);
 
       return PlayerModel(
+        id: data["id"],
 
-  id: DateTime.now()
-      .millisecondsSinceEpoch
-      .toString(),
+        name: data["name"],
 
-  name: data["name"],
+        role: data["role"],
 
-  runs: data["runs"],
+        runs: data["runs"],
 
-  balls: data["balls"],
+        balls: data["balls"],
 
-  runsGiven:
-  data["runsGiven"],
+        wickets: data["wickets"],
 
-  ballsBowled:
-  data["ballsBowled"],
+        runsGiven: data["runsGiven"],
 
-  wickets:
-  data["wickets"],
-);
+        ballsBowled: data["ballsBowled"],
 
+        matches: data["matches"],
+      );
     }).toList();
 
-    MatchService.bowlingPlayers =
+    // BOWLING PLAYERS
 
-    bowlingPlayersData.map((player){
-
-      Map<String, dynamic> data =
-
-      jsonDecode(player);
+    MatchService.bowlingPlayers = bowlingPlayersData.map((player) {
+      Map<String, dynamic> data = jsonDecode(player);
 
       return PlayerModel(
+        id: data["id"],
 
-  id: DateTime.now()
-      .millisecondsSinceEpoch
-      .toString(),
+        name: data["name"],
 
-  name: data["name"],
+        role: data["role"],
 
-  runs: data["runs"],
+        runs: data["runs"],
 
-  balls: data["balls"],
+        balls: data["balls"],
 
-  runsGiven:
-  data["runsGiven"],
+        wickets: data["wickets"],
 
-  ballsBowled:
-  data["ballsBowled"],
+        runsGiven: data["runsGiven"],
 
-  wickets:
-  data["wickets"],
-);
+        ballsBowled: data["ballsBowled"],
 
+        matches: data["matches"],
+      );
     }).toList();
+
+    // CURRENT PLAYER IDS
+
+    String strikerId = prefs.getString("striker") ?? "";
+
+    String nonStrikerId = prefs.getString("nonStriker") ?? "";
+
+    String bowlerId = prefs.getString("currentBowler") ?? "";
 
     // STRIKER
 
-    String strikerName =
-    prefs.getString(
-      "striker",
-    ) ?? "";
+    MatchService.striker = MatchService.battingPlayers.firstWhere((player) {
+      return player.id == strikerId;
+    });
 
-    String nonStrikerName =
-    prefs.getString(
-      "nonStriker",
-    ) ?? "";
+    // NON STRIKER
 
-    String bowlerName =
-    prefs.getString(
-      "bowler",
-    ) ?? "";
+    MatchService.nonStriker = MatchService.battingPlayers.firstWhere((player) {
+      return player.id == nonStrikerId;
+    });
 
-    MatchService.striker =
+    // BOWLER
 
-    MatchService.battingPlayers
-        .firstWhere(
-          (player) =>
-      player.name ==
-          strikerName,
-    );
+    MatchService.currentBowler = MatchService.bowlingPlayers.firstWhere((
+      player,
+    ) {
+      return player.id == bowlerId;
+    });
 
-    MatchService.nonStriker =
+    // OUT PLAYERS
 
-    MatchService.battingPlayers
-        .firstWhere(
-          (player) =>
-      player.name ==
-          nonStrikerName,
-    );
+    List<String> outIds = prefs.getStringList("outPlayers") ?? [];
 
-    MatchService.currentBowler =
-
-    MatchService.bowlingPlayers
-        .firstWhere(
-          (player) =>
-      player.name ==
-          bowlerName,
-    );
+    MatchService.outPlayers = MatchService.battingPlayers.where((player) {
+      return outIds.contains(player.id);
+    }).toList();
 
     return true;
   }
@@ -351,70 +281,72 @@ class MatchStorageService {
   // =========================
   // CLEAR MATCH
   // =========================
+// =========================
+// HAS SAVED MATCH
+// =========================
 
-  static Future clearMatch() async {
+static Future<bool>
+hasSavedMatch() async {
 
-    SharedPreferences prefs =
-    await SharedPreferences.getInstance();
+  SharedPreferences prefs =
+  await SharedPreferences
+      .getInstance();
 
-    await prefs.remove(
+  return prefs.containsKey(
+    "teamAName",
+  );
+}
+  static Future<void> clearMatch() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+
+    List<String> keys = [
       "teamAName",
-    );
 
-    await prefs.remove(
       "teamBName",
-    );
 
-    await prefs.remove(
       "totalOvers",
-    );
 
-    await prefs.remove(
       "totalRuns",
-    );
 
-    await prefs.remove(
       "wickets",
-    );
 
-    await prefs.remove(
       "over",
-    );
 
-    await prefs.remove(
       "ball",
-    );
 
-    await prefs.remove(
+      "wides",
+
+      "noBalls",
+
+      "byes",
+
+      "legByes",
+
       "isSecondInnings",
-    );
 
-    await prefs.remove(
       "isMatchEnded",
-    );
 
-    await prefs.remove(
+      "firstInningsScore",
+
       "target",
-    );
 
-    await prefs.remove(
+      "resultText",
+
       "striker",
-    );
 
-    await prefs.remove(
       "nonStriker",
-    );
 
-    await prefs.remove(
-      "bowler",
-    );
+      "currentBowler",
 
-    await prefs.remove(
+      "outPlayers",
+
       "battingPlayers",
-    );
 
-    await prefs.remove(
       "bowlingPlayers",
-    );
+    ];
+
+    for (String key in keys) {
+      await prefs.remove(key);
+    }
   }
 }

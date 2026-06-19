@@ -1,10 +1,8 @@
-
 import 'package:flutter/material.dart';
 
 import '../models/player_model.dart';
 
 import '../services/player_service.dart';
-
 import '../services/match_service.dart';
 
 import 'match_setup_screen.dart';
@@ -26,6 +24,10 @@ class StartMatchScreen
 class _StartMatchScreenState
     extends State<StartMatchScreen> {
 
+  // =========================
+  // CONTROLLERS
+  // =========================
+
   final TextEditingController
   teamAController =
   TextEditingController();
@@ -38,12 +40,223 @@ class _StartMatchScreenState
   oversController =
   TextEditingController();
 
-  List<PlayerModel> allPlayers =
-    PlayerService.getPlayers();
+  // =========================
+  // PLAYERS
+  // =========================
 
-  List<PlayerModel> teamAPlayers = [];
+  List<PlayerModel>
+  allPlayers = [];
 
-  List<PlayerModel> teamBPlayers = [];
+  List<PlayerModel>
+  teamAPlayers = [];
+
+  List<PlayerModel>
+  teamBPlayers = [];
+
+  // =========================
+  // INIT
+  // =========================
+
+  @override
+  void initState() {
+    super.initState();
+
+    loadPlayers();
+  }
+
+  // =========================
+  // LOAD PLAYERS
+  // =========================
+
+  void loadPlayers(){
+
+    allPlayers =
+        PlayerService.getPlayers();
+
+    setState(() {});
+  }
+
+  // =========================
+  // PLAYER TILE
+  // =========================
+
+  Widget playerTile({
+
+    required PlayerModel player,
+
+    required bool isTeamA,
+
+  }) {
+
+    bool selected =
+
+    isTeamA
+
+        ?
+
+    teamAPlayers.contains(player)
+
+        :
+
+    teamBPlayers.contains(player);
+
+    return CheckboxListTile(
+
+      value: selected,
+
+      activeColor: Colors.green,
+
+      title: Text(
+        player.name,
+      ),
+
+      onChanged: (value){
+
+        setState(() {
+
+          if(isTeamA){
+
+            if(value == true){
+
+              if(!teamAPlayers
+                  .contains(player)){
+
+                teamAPlayers
+                    .add(player);
+
+                teamBPlayers
+                    .remove(player);
+              }
+
+            }else{
+
+              teamAPlayers
+                  .remove(player);
+            }
+
+          }else{
+
+            if(value == true){
+
+              if(!teamBPlayers
+                  .contains(player)){
+
+                teamBPlayers
+                    .add(player);
+
+                teamAPlayers
+                    .remove(player);
+              }
+
+            }else{
+
+              teamBPlayers
+                  .remove(player);
+            }
+          }
+        });
+      },
+    );
+  }
+
+  // =========================
+  // START MATCH
+  // =========================
+
+  void startMatch(){
+
+    String teamA =
+    teamAController.text
+        .trim();
+
+    String teamB =
+    teamBController.text
+        .trim();
+
+    String overs =
+    oversController.text
+        .trim();
+
+    // VALIDATION
+
+    if(
+
+    teamA.isEmpty ||
+
+        teamB.isEmpty ||
+
+        overs.isEmpty ||
+
+        teamAPlayers.length < 2 ||
+
+        teamBPlayers.length < 2
+
+    ){
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(
+
+        const SnackBar(
+
+          content: Text(
+            "Fill all details properly",
+          ),
+        ),
+      );
+
+      return;
+    }
+
+    // RESET MATCH
+
+    MatchService.resetMatch();
+
+    // SAVE MATCH INFO
+
+    MatchService.teamAName =
+        teamA;
+
+    MatchService.teamBName =
+        teamB;
+
+    MatchService.totalOvers =
+        int.parse(overs);
+
+    // SAVE PLAYERS
+
+    MatchService.battingPlayers =
+        teamAPlayers;
+
+    MatchService.bowlingPlayers =
+        teamBPlayers;
+
+    // RESET PLAYER STATS
+
+    MatchService.resetPlayerStats();
+
+    // NEXT SCREEN
+
+    Navigator.pushReplacement(
+
+      context,
+
+      MaterialPageRoute(
+
+        builder: (context){
+
+          return MatchSetupScreen(
+
+            battingPlayers:
+            teamAPlayers,
+
+            bowlingPlayers:
+            teamBPlayers,
+          );
+        },
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -55,18 +268,42 @@ class _StartMatchScreenState
         title: const Text(
           "Start Match",
         ),
+
+        centerTitle: true,
       ),
 
-      body: SingleChildScrollView(
+      body: allPlayers.isEmpty
+
+          ? const Center(
+
+        child: Text(
+
+          "No Players Found\nAdd Players First",
+
+          textAlign:
+          TextAlign.center,
+
+          style: TextStyle(
+            fontSize: 18,
+          ),
+        ),
+      )
+
+          : SingleChildScrollView(
 
         padding:
         const EdgeInsets.all(20),
 
         child: Column(
 
+          crossAxisAlignment:
+          CrossAxisAlignment.start,
+
           children: [
 
+            // =========================
             // TEAM A
+            // =========================
 
             TextField(
 
@@ -79,13 +316,6 @@ class _StartMatchScreenState
                 hintText:
                 "Team A Name",
 
-                filled: true,
-
-                fillColor:
-                const Color(
-                  0xff1E293B,
-                ),
-
                 border:
                 OutlineInputBorder(
 
@@ -93,9 +323,6 @@ class _StartMatchScreenState
                   BorderRadius.circular(
                     15,
                   ),
-
-                  borderSide:
-                  BorderSide.none,
                 ),
               ),
             ),
@@ -104,7 +331,9 @@ class _StartMatchScreenState
               height: 20,
             ),
 
+            // =========================
             // TEAM B
+            // =========================
 
             TextField(
 
@@ -117,13 +346,6 @@ class _StartMatchScreenState
                 hintText:
                 "Team B Name",
 
-                filled: true,
-
-                fillColor:
-                const Color(
-                  0xff1E293B,
-                ),
-
                 border:
                 OutlineInputBorder(
 
@@ -131,9 +353,6 @@ class _StartMatchScreenState
                   BorderRadius.circular(
                     15,
                   ),
-
-                  borderSide:
-                  BorderSide.none,
                 ),
               ),
             ),
@@ -142,7 +361,9 @@ class _StartMatchScreenState
               height: 20,
             ),
 
+            // =========================
             // OVERS
+            // =========================
 
             TextField(
 
@@ -156,14 +377,7 @@ class _StartMatchScreenState
               InputDecoration(
 
                 hintText:
-                "Overs",
-
-                filled: true,
-
-                fillColor:
-                const Color(
-                  0xff1E293B,
-                ),
+                "Total Overs",
 
                 border:
                 OutlineInputBorder(
@@ -172,9 +386,6 @@ class _StartMatchScreenState
                   BorderRadius.circular(
                     15,
                   ),
-
-                  borderSide:
-                  BorderSide.none,
                 ),
               ),
             ),
@@ -183,24 +394,20 @@ class _StartMatchScreenState
               height: 30,
             ),
 
+            // =========================
             // TEAM A PLAYERS
+            // =========================
 
-            const Align(
+            const Text(
 
-              alignment:
-              Alignment.centerLeft,
+              "Select Team A Players",
 
-              child: Text(
+              style: TextStyle(
 
-                "Select Team A Players",
+                fontSize: 20,
 
-                style: TextStyle(
-
-                  fontSize: 20,
-
-                  fontWeight:
-                  FontWeight.bold,
-                ),
+                fontWeight:
+                FontWeight.bold,
               ),
             ),
 
@@ -208,9 +415,22 @@ class _StartMatchScreenState
               height: 10,
             ),
 
-            SizedBox(
+            Container(
 
               height: 250,
+
+              decoration:
+              BoxDecoration(
+
+                border: Border.all(
+                  color: Colors.grey,
+                ),
+
+                borderRadius:
+                BorderRadius.circular(
+                  15,
+                ),
+              ),
 
               child: ListView.builder(
 
@@ -220,42 +440,12 @@ class _StartMatchScreenState
                 itemBuilder:
                     (context, index){
 
-                  PlayerModel player =
-                  allPlayers[index];
+                  return playerTile(
 
-                  return CheckboxListTile(
+                    player:
+                    allPlayers[index],
 
-                    value:
-                    teamAPlayers
-                        .contains(player),
-
-                    onChanged:
-                        (value){
-
-                      setState(() {
-
-                        if(value == true){
-
-                          if(!teamAPlayers
-                              .contains(player)){
-
-                            teamAPlayers
-                                .add(player);
-
-                            teamBPlayers
-                                .remove(player);
-                          }
-
-                        }else{
-
-                          teamAPlayers
-                              .remove(player);
-                        }
-                      });
-                    },
-
-                    title:
-                    Text(player.name),
+                    isTeamA: true,
                   );
                 },
               ),
@@ -265,24 +455,20 @@ class _StartMatchScreenState
               height: 25,
             ),
 
+            // =========================
             // TEAM B PLAYERS
+            // =========================
 
-            const Align(
+            const Text(
 
-              alignment:
-              Alignment.centerLeft,
+              "Select Team B Players",
 
-              child: Text(
+              style: TextStyle(
 
-                "Select Team B Players",
+                fontSize: 20,
 
-                style: TextStyle(
-
-                  fontSize: 20,
-
-                  fontWeight:
-                  FontWeight.bold,
-                ),
+                fontWeight:
+                FontWeight.bold,
               ),
             ),
 
@@ -290,9 +476,22 @@ class _StartMatchScreenState
               height: 10,
             ),
 
-            SizedBox(
+            Container(
 
               height: 250,
+
+              decoration:
+              BoxDecoration(
+
+                border: Border.all(
+                  color: Colors.grey,
+                ),
+
+                borderRadius:
+                BorderRadius.circular(
+                  15,
+                ),
+              ),
 
               child: ListView.builder(
 
@@ -302,42 +501,12 @@ class _StartMatchScreenState
                 itemBuilder:
                     (context, index){
 
-                  PlayerModel player =
-                  allPlayers[index];
+                  return playerTile(
 
-                  return CheckboxListTile(
+                    player:
+                    allPlayers[index],
 
-                    value:
-                    teamBPlayers
-                        .contains(player),
-
-                    onChanged:
-                        (value){
-
-                      setState(() {
-
-                        if(value == true){
-
-                          if(!teamBPlayers
-                              .contains(player)){
-
-                            teamBPlayers
-                                .add(player);
-
-                            teamAPlayers
-                                .remove(player);
-                          }
-
-                        }else{
-
-                          teamBPlayers
-                              .remove(player);
-                        }
-                      });
-                    },
-
-                    title:
-                    Text(player.name),
+                    isTeamA: false,
                   );
                 },
               ),
@@ -347,7 +516,9 @@ class _StartMatchScreenState
               height: 30,
             ),
 
-            // BUTTON
+            // =========================
+            // START BUTTON
+            // =========================
 
             SizedBox(
 
@@ -374,103 +545,8 @@ class _StartMatchScreenState
                   ),
                 ),
 
-                onPressed: () {
-
-                  // VALIDATION
-
-                  if(
-
-                  teamAController
-                      .text
-                      .trim()
-                      .isEmpty ||
-
-                      teamBController
-                          .text
-                          .trim()
-                          .isEmpty ||
-
-                      oversController
-                          .text
-                          .trim()
-                          .isEmpty ||
-
-                      teamAPlayers.length < 2 ||
-
-                      teamBPlayers.isEmpty
-
-                  ){
-
-                    ScaffoldMessenger.of(
-                      context,
-                    ).showSnackBar(
-
-                      const SnackBar(
-
-                        content: Text(
-                          "Fill all details properly",
-                        ),
-                      ),
-                    );
-
-                    return;
-                  }
-
-                  // RESET MATCH
-
-                  MatchService
-                      .resetMatch();
-
-                  // SAVE TEAM INFO
-
-                  MatchService.teamAName =
-                      teamAController.text;
-
-                  MatchService.teamBName =
-                      teamBController.text;
-
-                  MatchService.totalOvers =
-                      int.parse(
-                        oversController.text,
-                      );
-
-                  // SAVE PLAYERS
-
-                  MatchService
-                      .battingPlayers =
-                      teamAPlayers;
-
-                  MatchService
-                      .bowlingPlayers =
-                      teamBPlayers;
-
-                  // RESET PLAYER STATS
-
-                  MatchService
-                      .resetPlayerStats();
-
-                  // NEXT SCREEN
-
-                  Navigator.pushReplacement(
-
-                    context,
-
-                    MaterialPageRoute(
-
-                      builder:
-                          (context) =>
-
-                          MatchSetupScreen(
-
-                            battingPlayers:
-                            teamAPlayers,
-
-                            bowlingPlayers:
-                            teamBPlayers,
-                          ),
-                    ),
-                  );
-                },
+                onPressed:
+                startMatch,
 
                 child: const Text(
 
@@ -478,7 +554,7 @@ class _StartMatchScreenState
 
                   style: TextStyle(
 
-                    fontSize: 22,
+                    fontSize: 20,
 
                     color:
                     Colors.white,

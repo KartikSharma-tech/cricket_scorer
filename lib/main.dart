@@ -83,7 +83,7 @@ class CricketScorerApp
       ),
 
       home:
-      const NavigationScreen(),
+      NavigationScreen(),
     );
   }
 }
