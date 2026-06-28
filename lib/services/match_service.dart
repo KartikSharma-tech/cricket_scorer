@@ -54,6 +54,12 @@ class MatchService {
   // =========================
 
   static String resultText = "";
+// =========================
+// BALL HISTORY
+// =========================
+
+static List<BallModel>
+ballHistory = [];
 
   // =========================
   // PLAYERS
@@ -117,6 +123,8 @@ class MatchService {
     nonStriker = null;
 
     currentBowler = null;
+    
+    ballHistory.clear();
   }
 
   // =========================

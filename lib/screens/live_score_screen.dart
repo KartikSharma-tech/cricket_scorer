@@ -1,1755 +1,875 @@
-// ```dart
-import 'package:flutter/material.dart';
+import 'dart:convert';
 
-import '../models/player_model.dart';
-import '../services/match_service.dart';
-import '../services/match_storage_service.dart';
+import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class LiveScoreScreen extends StatefulWidget {
+  final Map<String, dynamic> matchData;
 
   const LiveScoreScreen({
     super.key,
+    required this.matchData,
   });
 
   @override
-  State<LiveScoreScreen> createState() =>
-      _LiveScoreScreenState();
+  State<LiveScoreScreen> createState() => _LiveScoreScreenState();
 }
 
-class _LiveScoreScreenState
-    extends State<LiveScoreScreen> {
+class _LiveScoreScreenState extends State<LiveScoreScreen> {
+  int totalRuns = 0;
+  int wickets = 0;
 
-  // =========================
-  // GETTERS
-  // =========================
+  int overs = 0;
+  int balls = 0;
 
-  PlayerModel get striker =>
-      MatchService.striker!;
+  int strikerRuns = 0;
+  int strikerBalls = 0;
 
-  PlayerModel get nonStriker =>
-      MatchService.nonStriker!;
+  int nonStrikerRuns = 0;
+  int nonStrikerBalls = 0;
 
-  PlayerModel get currentBowler =>
-      MatchService.currentBowler!;
+  int bowlerRuns = 0;
+  int bowlerWickets = 0;
+  int bowlerBalls = 0;
 
-  // =========================
-  // SWAP STRIKE
-  // =========================
+  String strikerName = "Batsman 1";
+  String nonStrikerName = "Batsman 2";
+  String bowlerName = "Bowler";
 
-  void swapStrike(){
+  bool lastManBatting = true;
 
-    PlayerModel temp =
-    MatchService.striker!;
+  List<Map<String, dynamic>> ballHistory = [];
 
-    MatchService.striker =
-        MatchService.nonStriker;
+  @override
+  void initState() {
+    super.initState();
 
-    MatchService.nonStriker =
-        temp;
+    strikerName = widget.matchData["striker"] ?? "Batsman 1";
+    nonStrikerName = widget.matchData["nonStriker"] ?? "Batsman 2";
+    bowlerName = widget.matchData["bowler"] ?? "Bowler";
+
+    loadMatch();
   }
 
-  // =========================
-  // CHECK RESULT
-  // =========================
+  double get currentRunRate {
+    double totalOvers = overs + (balls / 6);
 
-  void checkMatchResult(){
-
-    MatchService.checkWinner();
-
-    if(MatchService.isMatchEnded){
-
-      showInningsCompleteDialog();
-    }
-  }
-
-  // =========================
-  // COMPLETE OVER
-  // =========================
-
-  void completeOver(){
-
-    MatchService.over++;
-
-    MatchService.ball = 0;
-
-    bool soloPlayer =
-
-        MatchService.wickets >=
-
-            MatchService
-                .battingPlayers
-                .length - 2;
-
-    if(!soloPlayer){
-
-      swapStrike();
+    if (totalOvers == 0) {
+      return 0.0;
     }
 
-    // MATCH END
-
-    if(
-
-    MatchService.over >=
-        MatchService.totalOvers
-
-    ){
-
-      if(
-
-      MatchService.isSecondInnings
-
-      ){
-
-        checkMatchResult();
-
-      }else{
-
-        showInningsCompleteDialog();
-      }
-
-      return;
-    }
-
-    showBowlerDialog();
+    return totalRuns / totalOvers;
   }
 
-  // =========================
-  // ADD RUN
-  // =========================
-
-  void addRun(int run){
-
-    if(MatchService.isMatchEnded){
-      return;
-    }
-
-    setState(() {
-
-      MatchService.totalRuns += run;
-
-      striker.runs += run;
-
-      striker.balls++;
-
-      currentBowler.runsGiven += run;
-
-      currentBowler.ballsBowled++;
-
-      MatchService.ball++;
-
-      bool soloPlayer =
-
-          MatchService.wickets >=
-
-              MatchService
-                  .battingPlayers
-                  .length - 2;
-
-      // STRIKE ROTATE
-
-      if(
-
-      !soloPlayer &&
-
-          (run == 1 ||
-              run == 3 ||
-              run == 5)
-
-      ){
-
-        swapStrike();
-      }
-
-      // OVER COMPLETE
-
-      if(MatchService.ball == 6){
-
-        completeOver();
-      }
-
-      // RESULT CHECK
-
-      if(MatchService.isSecondInnings){
-
-        checkMatchResult();
-      }
-
-      MatchStorageService
-          .saveMatch();
-    });
-  }
-
-  // =========================
-  // WIDE
-  // =========================
-
-  void addWide(){
-
-    if(MatchService.isMatchEnded){
-      return;
-    }
-
-    setState(() {
-
-      MatchService.totalRuns++;
-
-      MatchService.wides++;
-
-      currentBowler.runsGiven++;
-
-      if(MatchService.isSecondInnings){
-
-        checkMatchResult();
-      }
-
-      MatchStorageService
-          .saveMatch();
-    });
-  }
-
-  // =========================
-  // NO BALL
-  // =========================
-
-  void addNoBall(){
-
-    if(MatchService.isMatchEnded){
-      return;
-    }
-
-    setState(() {
-
-      MatchService.totalRuns++;
-
-      MatchService.noBalls++;
-
-      currentBowler.runsGiven++;
-
-      if(MatchService.isSecondInnings){
-
-        checkMatchResult();
-      }
-
-      MatchStorageService
-          .saveMatch();
-    });
-  }
-
-  // =========================
-  // NORMAL WICKET
-  // =========================
-
-  void addWicket(){
-
-    if(MatchService.isMatchEnded){
-      return;
-    }
-
-    setState(() {
-
-      MatchService.wickets++;
-
-      striker.balls++;
-
-      currentBowler.wickets++;
-
-      currentBowler.ballsBowled++;
-
-      MatchService.ball++;
-
-      MatchService.outPlayers
-          .add(striker);
-
-      // ALL OUT
-
-      if(
-
-      MatchService.wickets >=
-
-          MatchService
-              .battingPlayers
-              .length - 1
-
-      ){
-
-        if(
-
-        MatchService.isSecondInnings
-
-        ){
-
-          checkMatchResult();
-
-        }else{
-
-          showInningsCompleteDialog();
-        }
-
-        return;
-      }
-
-      List<PlayerModel>
-      remainingPlayers =
-
-      MatchService.battingPlayers
-          .where((player){
-
-        return
-
-        !MatchService.outPlayers
-            .contains(player)
-
-            &&
-
-            player != nonStriker;
-
-      }).toList();
-
-      if(remainingPlayers.isNotEmpty){
-
-        showNewBatsmanDialog(
-          remainingPlayers,
-        );
-      }
-
-      if(MatchService.ball == 6){
-
-        completeOver();
-      }
-
-      MatchStorageService
-          .saveMatch();
-    });
-  }
-
-  // =========================
-  // RUN OUT
-  // =========================
-
-  void addRunOut(){
-
-    if(MatchService.isMatchEnded){
-      return;
-    }
-
-    showDialog(
-
-      context: context,
-
-      barrierDismissible: false,
-
-      builder: (context){
-
-        return AlertDialog(
-
-          title: const Text(
-            "Select Out Batsman",
-          ),
-
-          content: Column(
-
-            mainAxisSize:
-            MainAxisSize.min,
-
-            children: [
-
-              ListTile(
-
-                title:
-                Text(striker.name),
-
-                subtitle:
-                const Text(
-                  "Striker",
-                ),
-
-                onTap: (){
-
-                  Navigator.pop(context);
-
-                  processRunOut(
-                    striker,
-                  );
-                },
-              ),
-
-              ListTile(
-
-                title:
-                Text(nonStriker.name),
-
-                subtitle:
-                const Text(
-                  "Non Striker",
-                ),
-
-                onTap: (){
-
-                  Navigator.pop(context);
-
-                  processRunOut(
-                    nonStriker,
-                  );
-                },
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  // =========================
-  // PROCESS RUN OUT
-  // =========================
-
-  void processRunOut(
-      PlayerModel outPlayer,
-      ){
-
-    setState(() {
-
-      MatchService.wickets++;
-
-      outPlayer.balls++;
-
-      MatchService.ball++;
-
-      MatchService.outPlayers
-          .add(outPlayer);
-
-      // ALL OUT
-
-      if(
-
-      MatchService.wickets >=
-
-          MatchService
-              .battingPlayers
-              .length - 1
-
-      ){
-
-        if(
-
-        MatchService.isSecondInnings
-
-        ){
-
-          checkMatchResult();
-
-        }else{
-
-          showInningsCompleteDialog();
-        }
-
-        return;
-      }
-
-      List<PlayerModel>
-      remainingPlayers =
-
-      MatchService.battingPlayers
-          .where((player){
-
-        return
-
-        !MatchService.outPlayers
-            .contains(player)
-
-            &&
-
-            player != striker
-
-            &&
-
-            player != nonStriker;
-
-      }).toList();
-
-      if(remainingPlayers.isNotEmpty){
-
-        showRunOutBatsmanDialog(
-
-          remainingPlayers,
-
-          outPlayer,
-        );
-      }
-
-      if(MatchService.ball == 6){
-
-        completeOver();
-      }
-
-      MatchStorageService
-          .saveMatch();
-    });
-  }
-
-  // =========================
-  // NEW BATSMAN
-  // =========================
-
-  void showNewBatsmanDialog(
-      List<PlayerModel> players){
-
-    showDialog(
-
-      context: context,
-
-      barrierDismissible: false,
-
-      builder: (context){
-
-        return AlertDialog(
-
-          title: const Text(
-            "Select New Batsman",
-          ),
-
-          content: SizedBox(
-
-            width: double.maxFinite,
-
-            child: ListView.builder(
-
-              shrinkWrap: true,
-
-              itemCount:
-              players.length,
-
-              itemBuilder:
-                  (context, index){
-
-                PlayerModel player =
-                players[index];
-
-                return ListTile(
-
-                  title:
-                  Text(player.name),
-
-                  onTap: (){
-
-                    setState(() {
-
-                      MatchService.striker =
-                          player;
-                    });
-
-                    MatchStorageService
-                        .saveMatch();
-
-                    Navigator.pop(context);
-                  },
-                );
-              },
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  // =========================
-  // RUN OUT NEW BATSMAN
-  // =========================
-
-  void showRunOutBatsmanDialog(
-
-      List<PlayerModel> players,
-
-      PlayerModel outPlayer,
-
-      ){
-
-    showDialog(
-
-      context: context,
-
-      barrierDismissible: false,
-
-      builder: (context){
-
-        return AlertDialog(
-
-          title: const Text(
-            "Select New Batsman",
-          ),
-
-          content: SizedBox(
-
-            width: double.maxFinite,
-
-            child: ListView.builder(
-
-              shrinkWrap: true,
-
-              itemCount:
-              players.length,
-
-              itemBuilder:
-                  (context, index){
-
-                PlayerModel player =
-                players[index];
-
-                return ListTile(
-
-                  title:
-                  Text(player.name),
-
-                  onTap: (){
-
-                    setState(() {
-
-                      if(outPlayer ==
-                          striker){
-
-                        MatchService.striker =
-                            player;
-
-                      }else{
-
-                        MatchService.nonStriker =
-                            player;
-                      }
-                    });
-
-                    MatchStorageService
-                        .saveMatch();
-
-                    Navigator.pop(context);
-                  },
-                );
-              },
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  // =========================
-  // BOWLER DIALOG
-  // =========================
-
-  void showBowlerDialog(){
-
-    List<PlayerModel>
-    bowlers =
-
-    MatchService.bowlingPlayers
-        .where((player){
-
-      return player !=
-          currentBowler;
-
-    }).toList();
-
-    if(bowlers.isEmpty){
-      return;
-    }
-
-    showDialog(
-
-      context: context,
-
-      barrierDismissible: false,
-
-      builder: (context){
-
-        return AlertDialog(
-
-          title: const Text(
-            "Select Next Bowler",
-          ),
-
-          content: SizedBox(
-
-            width: double.maxFinite,
-
-            child: ListView.builder(
-
-              shrinkWrap: true,
-
-              itemCount:
-              bowlers.length,
-
-              itemBuilder:
-                  (context, index){
-
-                PlayerModel bowler =
-                bowlers[index];
-
-                return ListTile(
-
-                  title:
-                  Text(bowler.name),
-
-                  onTap: (){
-
-                    setState(() {
-
-                      MatchService
-                          .currentBowler =
-                          bowler;
-                    });
-
-                    MatchStorageService
-                        .saveMatch();
-
-                    Navigator.pop(context);
-                  },
-                );
-              },
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  // =========================
-  // STRIKE RATE
-  // =========================
-
-  double getStrikeRate(
-      PlayerModel player){
-
-    if(player.balls == 0){
-      return 0;
-    }
-
-    return
-
-        (player.runs / player.balls)
-            * 100;
-  }
-
-  // =========================
-  // BOWLER OVERS
-  // =========================
-
-  String getBowlerOvers(){
-
-    int overs =
-
-        currentBowler
-            .ballsBowled ~/ 6;
-
-    int balls =
-
-        currentBowler
-            .ballsBowled % 6;
-
+  String get overText {
     return "$overs.$balls";
   }
 
-  // =========================
-  // ECONOMY
-  // =========================
+  Future<void> saveMatch() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
 
-  double getEconomy(){
+    Map<String, dynamic> data = {
+      "totalRuns": totalRuns,
+      "wickets": wickets,
+      "overs": overs,
+      "balls": balls,
+      "strikerRuns": strikerRuns,
+      "strikerBalls": strikerBalls,
+      "nonStrikerRuns": nonStrikerRuns,
+      "nonStrikerBalls": nonStrikerBalls,
+      "bowlerRuns": bowlerRuns,
+      "bowlerWickets": bowlerWickets,
+      "bowlerBalls": bowlerBalls,
+      "strikerName": strikerName,
+      "nonStrikerName": nonStrikerName,
+      "bowlerName": bowlerName,
+      "ballHistory": ballHistory,
+    };
 
-    if(currentBowler
-        .ballsBowled == 0){
+    prefs.setString(
+      "live_match",
+      jsonEncode(data),
+    );
+  }
 
-      return 0;
+  Future<void> loadMatch() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+
+    String? data = prefs.getString("live_match");
+
+    if (data == null) {
+      return;
     }
 
-    double overs =
+    Map<String, dynamic> decoded = jsonDecode(data);
 
-        currentBowler
-            .ballsBowled / 6;
+    setState(() {
+      totalRuns = decoded["totalRuns"];
+      wickets = decoded["wickets"];
 
-    return
+      overs = decoded["overs"];
+      balls = decoded["balls"];
 
-        currentBowler.runsGiven
-            / overs;
+      strikerRuns = decoded["strikerRuns"];
+      strikerBalls = decoded["strikerBalls"];
+
+      nonStrikerRuns = decoded["nonStrikerRuns"];
+      nonStrikerBalls = decoded["nonStrikerBalls"];
+
+      bowlerRuns = decoded["bowlerRuns"];
+      bowlerWickets = decoded["bowlerWickets"];
+      bowlerBalls = decoded["bowlerBalls"];
+
+      strikerName = decoded["strikerName"];
+      nonStrikerName = decoded["nonStrikerName"];
+      bowlerName = decoded["bowlerName"];
+
+      ballHistory = List<Map<String, dynamic>>.from(
+        decoded["ballHistory"],
+      );
+    });
   }
 
-  // =========================
-  // STAT BOX
-  // =========================
+  void rotateStrike() {
+    String tempName = strikerName;
+    strikerName = nonStrikerName;
+    nonStrikerName = tempName;
 
-  Widget statBox(
-      String title,
-      String value,
-      ){
+    int tempRuns = strikerRuns;
+    strikerRuns = nonStrikerRuns;
+    nonStrikerRuns = tempRuns;
 
-    return Column(
+    int tempBalls = strikerBalls;
+    strikerBalls = nonStrikerBalls;
+    nonStrikerBalls = tempBalls;
+  }
 
-      children: [
+  void completeBall() {
+    balls++;
+    bowlerBalls++;
 
-        Text(
+    if (balls == 6) {
+      overs++;
+      balls = 0;
 
-          title,
+      rotateStrike();
+    }
+  }
 
-          style: const TextStyle(
+  void addBallHistory(
+    String value,
+  ) {
+    ballHistory.insert(
+      0,
+      {
+        "ball": value,
+      },
+    );
+  }
 
-            color: Colors.white70,
+  void addRuns(
+    int run,
+  ) {
+    setState(() {
+      totalRuns += run;
+
+      strikerRuns += run;
+      strikerBalls++;
+
+      bowlerRuns += run;
+
+      addBallHistory(run.toString());
+
+      completeBall();
+
+      if (run == 1 || run == 3 || run == 5) {
+        rotateStrike();
+      }
+    });
+
+    saveMatch();
+  }
+
+  void addWide() {
+    setState(() {
+      totalRuns += 1;
+
+      bowlerRuns += 1;
+
+      addBallHistory("WD");
+    });
+
+    saveMatch();
+  }
+
+  void addNoBall(
+    int batRun,
+  ) {
+    setState(() {
+      totalRuns += batRun + 1;
+
+      strikerRuns += batRun;
+      strikerBalls++;
+
+      bowlerRuns += batRun + 1;
+
+      addBallHistory("NB+$batRun");
+
+      if (batRun == 1 || batRun == 3 || batRun == 5) {
+        rotateStrike();
+      }
+    });
+
+    saveMatch();
+  }
+
+  void addWicket() {
+  if (wickets >= 10) {
+    return;
+  }
+
+  setState(() {
+    wickets++;
+
+    bowlerWickets++;
+
+    strikerBalls++;
+
+    addBallHistory("W");
+
+    completeBall();
+
+    if (wickets >= 10) {
+      showAllOutDialog();
+      return;
+    }
+
+    if (lastManBatting && wickets == 9) {
+      return;
+    }
+
+    strikerName = "New Batsman";
+    strikerRuns = 0;
+    strikerBalls = 0;
+  });
+
+  saveMatch();
+}
+void showAllOutDialog() {
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (context) {
+      return AlertDialog(
+        backgroundColor: Colors.black,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        title: const Text(
+          "All Out",
+          style: TextStyle(
+            color: Colors.orange,
+            fontWeight: FontWeight.bold,
           ),
         ),
-
-        const SizedBox(
-          height: 5,
-        ),
-
-        Text(
-
-          value,
-
+        content: Text(
+          "Innings Finished\nScore : $totalRuns/$wickets",
           style: const TextStyle(
-
-            fontSize: 18,
-
-            fontWeight:
-            FontWeight.bold,
-
             color: Colors.white,
+            fontSize: 16,
           ),
         ),
-      ],
-    );
-  }
-
-  // =========================
-  // PLAYER CARD
-  // =========================
-
-  Widget playerCard({
-
-    required String title,
-
-    required PlayerModel player,
-
-    bool isStriker = false,
-
-  }){
-
-    return Container(
-
-      width: double.infinity,
-
-      padding:
-      const EdgeInsets.all(18),
-
-      decoration: BoxDecoration(
-
-        color:
-        const Color(
-          0xff1E293B,
-        ),
-
-        borderRadius:
-        BorderRadius.circular(
-          18,
-        ),
-      ),
-
-      child: Column(
-
-        crossAxisAlignment:
-        CrossAxisAlignment.start,
-
-        children: [
-
-          Text(
-
-            title,
-
-            style: const TextStyle(
-
-              fontSize: 18,
-
-              fontWeight:
-              FontWeight.bold,
-
-              color: Colors.orange,
+        actions: [
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orange,
             ),
-          ),
-
-          const SizedBox(
-            height: 12,
-          ),
-
-          Row(
-
-            mainAxisAlignment:
-            MainAxisAlignment
-                .spaceBetween,
-
-            children: [
-
-              Expanded(
-
-                child: Text(
-
-                  isStriker
-
-                      ?
-
-                  "${player.name} *"
-
-                      :
-
-                  player.name,
-
-                  style: const TextStyle(
-
-                    fontSize: 24,
-
-                    fontWeight:
-                    FontWeight.bold,
-
-                    color: Colors.white,
-                  ),
-                ),
+            onPressed: () {
+              Navigator.pop(context);
+            },
+            child: const Text(
+              "OK",
+              style: TextStyle(
+                color: Colors.black,
               ),
-
-              Text(
-
-                "${player.runs}"
-                    " (${player.balls})",
-
-                style: const TextStyle(
-
-                  fontSize: 22,
-
-                  fontWeight:
-                  FontWeight.bold,
-
-                  color: Colors.white,
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(
-            height: 10,
-          ),
-
-          Text(
-
-            "Strike Rate : "
-                "${getStrikeRate(player).toStringAsFixed(1)}",
-
-            style: const TextStyle(
-
-              color: Colors.white70,
-
-              fontSize: 16,
             ),
           ),
         ],
-      ),
-    );
-  }
+      );
+    },
+  );
+}
+  void addRunOut() async {
+    String? selectedPlayer;
 
-  // =========================
-  // BOWLER CARD
-  // =========================
-
-  Widget bowlerCard(){
-
-    return Container(
-
-      width: double.infinity,
-
-      padding:
-      const EdgeInsets.all(18),
-
-      decoration: BoxDecoration(
-
-        color:
-        const Color(
-          0xff1E293B,
-        ),
-
-        borderRadius:
-        BorderRadius.circular(
-          18,
-        ),
-      ),
-
-      child: Column(
-
-        crossAxisAlignment:
-        CrossAxisAlignment.start,
-
-        children: [
-
-          const Text(
-
-            "Current Bowler",
-
-            style: TextStyle(
-
-              fontSize: 18,
-
-              fontWeight:
-              FontWeight.bold,
-
-              color: Colors.orange,
-            ),
-          ),
-
-          const SizedBox(
-            height: 12,
-          ),
-
-          Row(
-
-            mainAxisAlignment:
-            MainAxisAlignment
-                .spaceBetween,
-
-            children: [
-
-              Expanded(
-
-                child: Text(
-
-                  currentBowler.name,
-
-                  style: const TextStyle(
-
-                    fontSize: 24,
-
-                    fontWeight:
-                    FontWeight.bold,
-
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-
-              Text(
-
-                "${currentBowler.wickets}"
-                    "/"
-                    "${currentBowler.runsGiven}",
-
-                style: const TextStyle(
-
-                  fontSize: 22,
-
-                  fontWeight:
-                  FontWeight.bold,
-
-                  color: Colors.white,
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(
-            height: 10,
-          ),
-
-          Text(
-
-            "Overs : "
-                "${getBowlerOvers()}",
-
-            style: const TextStyle(
-
-              color: Colors.white70,
-            ),
-          ),
-
-          const SizedBox(
-            height: 5,
-          ),
-
-          Text(
-
-            "Economy : "
-                "${getEconomy().toStringAsFixed(2)}",
-
-            style: const TextStyle(
-
-              color: Colors.white70,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // =========================
-  // SECOND INNINGS
-  // =========================
-
-  void startSecondInnings(){
-
-    Navigator.pop(context);
-
-    MatchService.firstInningsScore =
-        MatchService.totalRuns;
-
-    MatchService.target =
-        MatchService.firstInningsScore + 1;
-
-    MatchService.isSecondInnings =
-    true;
-
-    List<PlayerModel>
-    oldBatting =
-
-        MatchService.battingPlayers;
-
-    MatchService.battingPlayers =
-
-        MatchService.bowlingPlayers;
-
-    MatchService.bowlingPlayers =
-        oldBatting;
-
-    MatchService.resetInnings();
-
-    showSecondInningsSetup();
-  }
-
-  // =========================
-  // SECOND INNINGS SETUP
-  // =========================
-
-  void showSecondInningsSetup(){
-
-    showDialog(
-
+    await showDialog(
       context: context,
-
-      barrierDismissible: false,
-
-      builder: (context){
-
-        PlayerModel?
-        selectedStriker;
-
-        PlayerModel?
-        selectedNonStriker;
-
-        PlayerModel?
-        selectedBowler;
-
-        return StatefulBuilder(
-
-          builder: (context, setDialogState){
-
-            return AlertDialog(
-
-              title: const Text(
-                "2nd Innings Setup",
-              ),
-
-              content:
-              SingleChildScrollView(
-
-                child: Column(
-
-                  children: [
-
-                    DropdownButton<
-                        PlayerModel>(
-
-                      isExpanded: true,
-
-                      hint: const Text(
-                        "Select Striker",
-                      ),
-
-                      value:
-                      selectedStriker,
-
-                      items:
-
-                      MatchService
-                          .battingPlayers
-                          .map((player){
-
-                        return DropdownMenuItem(
-
-                          value: player,
-
-                          child:
-                          Text(player.name),
-                        );
-
-                      }).toList(),
-
-                      onChanged: (value){
-
-                        setDialogState(() {
-
-                          selectedStriker =
-                              value;
-                        });
-                      },
-                    ),
-
-                    const SizedBox(
-                      height: 15,
-                    ),
-
-                    DropdownButton<
-                        PlayerModel>(
-
-                      isExpanded: true,
-
-                      hint: const Text(
-                        "Select Non Striker",
-                      ),
-
-                      value:
-                      selectedNonStriker,
-
-                      items:
-
-                      MatchService
-                          .battingPlayers
-                          .where((player){
-
-                        return player !=
-                            selectedStriker;
-
-                      }).map((player){
-
-                        return DropdownMenuItem(
-
-                          value: player,
-
-                          child:
-                          Text(player.name),
-                        );
-
-                      }).toList(),
-
-                      onChanged: (value){
-
-                        setDialogState(() {
-
-                          selectedNonStriker =
-                              value;
-                        });
-                      },
-                    ),
-
-                    const SizedBox(
-                      height: 15,
-                    ),
-
-                    DropdownButton<
-                        PlayerModel>(
-
-                      isExpanded: true,
-
-                      hint: const Text(
-                        "Select Bowler",
-                      ),
-
-                      value:
-                      selectedBowler,
-
-                      items:
-
-                      MatchService
-                          .bowlingPlayers
-                          .map((player){
-
-                        return DropdownMenuItem(
-
-                          value: player,
-
-                          child:
-                          Text(player.name),
-                        );
-
-                      }).toList(),
-
-                      onChanged: (value){
-
-                        setDialogState(() {
-
-                          selectedBowler =
-                              value;
-                        });
-                      },
-                    ),
-                  ],
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: Colors.black,
+          title: const Text(
+            "Select Out Batsman",
+            style: TextStyle(
+              color: Colors.white,
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                title: Text(
+                  strikerName,
+                  style: const TextStyle(
+                    color: Colors.white,
+                  ),
                 ),
+                onTap: () {
+                  selectedPlayer = strikerName;
+                  Navigator.pop(context);
+                },
               ),
+              ListTile(
+                title: Text(
+                  nonStrikerName,
+                  style: const TextStyle(
+                    color: Colors.white,
+                  ),
+                ),
+                onTap: () {
+                  selectedPlayer = nonStrikerName;
+                  Navigator.pop(context);
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
 
-              actions: [
+    if (selectedPlayer == null) {
+      return;
+    }
 
-                TextButton(
+    setState(() {
+      wickets++;
 
-                  onPressed: (){
+      addBallHistory("RO");
 
-                    if(
+      completeBall();
 
-                    selectedStriker ==
-                        null ||
+      if (selectedPlayer == strikerName) {
+        strikerBalls++;
 
-                        selectedNonStriker ==
-                            null ||
+        strikerName = "New Batsman";
+        strikerRuns = 0;
+        strikerBalls = 0;
+      } else {
+        nonStrikerName = "New Batsman";
+        nonStrikerRuns = 0;
+        nonStrikerBalls = 0;
+      }
+    });
 
-                        selectedBowler ==
-                            null
+    saveMatch();
+  }
 
-                    ){
+  void undoBall() {
+  if (ballHistory.isEmpty) {
+    return;
+  }
 
-                      return;
-                    }
+  setState(() {
+    Map<String, dynamic> lastBall = ballHistory.removeAt(0);
 
-                    setState(() {
+    String value = lastBall["ball"];
 
-                      MatchService.striker =
-                          selectedStriker;
+    if (value == "WD") {
+      totalRuns -= 1;
+      bowlerRuns -= 1;
+    } else if (value.startsWith("NB")) {
+      List parts = value.split("+");
 
-                      MatchService.nonStriker =
-                          selectedNonStriker;
+      int batRun = int.parse(parts[1]);
 
-                      MatchService.currentBowler =
-                          selectedBowler;
-                    });
+      totalRuns -= (batRun + 1);
 
-                    MatchStorageService
-                        .saveMatch();
+      strikerRuns -= batRun;
+      strikerBalls -= 1;
 
-                    Navigator.pop(context);
-                  },
+      bowlerRuns -= (batRun + 1);
+    } else if (value == "W") {
+      wickets--;
 
-                  child: const Text(
-                    "Start Innings",
+      bowlerWickets--;
+
+      strikerBalls--;
+
+      if (balls == 0) {
+        overs--;
+        balls = 5;
+      } else {
+        balls--;
+      }
+    } else if (value == "RO") {
+      wickets--;
+
+      if (balls == 0) {
+        overs--;
+        balls = 5;
+      } else {
+        balls--;
+      }
+    } else {
+      int run = int.parse(value);
+
+      totalRuns -= run;
+
+      strikerRuns -= run;
+      strikerBalls--;
+
+      bowlerRuns -= run;
+
+      if (balls == 0) {
+        overs--;
+        balls = 5;
+      } else {
+        balls--;
+      }
+
+      if (run == 1 || run == 3 || run == 5) {
+        rotateStrike();
+      }
+    }
+  });
+
+  saveMatch();
+}
+
+  Widget scoreButton(
+    String text,
+    VoidCallback onTap,
+  ) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          height: 60,
+          margin: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: Colors.orange,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Center(
+            child: Text(
+              text,
+              style: const TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: Colors.black,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget batsmanTile(
+    String name,
+    int runs,
+    int balls,
+    bool striker,
+  ) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xff1A1A1A),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Row(
+              children: [
+                if (striker)
+                  const Text(
+                    "* ",
+                    style: TextStyle(
+                      color: Colors.orange,
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                Expanded(
+                  child: Text(
+                    name,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
               ],
-            );
-          },
-        );
-      },
+            ),
+          ),
+          Text(
+            "$runs ($balls)",
+            style: const TextStyle(
+              color: Colors.orange,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
-  // =========================
-  // COMPLETE DIALOG
-  // =========================
-
-  void showInningsCompleteDialog(){
-
-    showDialog(
-
-      context: context,
-
-      barrierDismissible: false,
-
-      builder: (context){
-
-        return AlertDialog(
-
-          title: Text(
-
-            MatchService.isSecondInnings
-
-                ?
-
-            "Match Finished"
-
-                :
-
-            "1st Innings Complete",
-          ),
-
-          content: Column(
-
-            mainAxisSize:
-            MainAxisSize.min,
-
-            children: [
-
-              Text(
-
-                "Score : "
-
-                    "${MatchService.totalRuns}"
-
-                    "/"
-
-                    "${MatchService.wickets}",
+  Widget infoCard(
+    String title,
+    String value,
+  ) {
+    return Expanded(
+      child: Container(
+        height: 90,
+        margin: const EdgeInsets.symmetric(horizontal: 4),
+        decoration: BoxDecoration(
+          color: const Color(0xff1A1A1A),
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(
+                color: Colors.grey,
+                fontSize: 14,
               ),
-
-              const SizedBox(
-                height: 10,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              value,
+              style: const TextStyle(
+                color: Colors.orange,
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
               ),
-
-              if(
-
-              MatchService.isSecondInnings
-
-              )
-
-                Text(
-
-                  MatchService.resultText,
-
-                  style: const TextStyle(
-
-                    fontWeight:
-                    FontWeight.bold,
-
-                    fontSize: 18,
-                  ),
-                ),
-            ],
-          ),
-
-          actions: [
-
-            if(
-
-            !MatchService.isSecondInnings
-
-            )
-
-              TextButton(
-
-                onPressed: (){
-
-                  startSecondInnings();
-                },
-
-                child: const Text(
-                  "Start 2nd Innings",
-                ),
-              ),
-
-            if(
-
-            MatchService.isSecondInnings
-
-            )
-
-              TextButton(
-
-                onPressed: () async {
-
-                  await MatchStorageService
-                      .clearMatch();
-
-                  MatchService.resetMatch();
-
-                  Navigator.pop(context);
-
-                  Navigator.pop(context);
-                },
-
-                child: const Text(
-                  "Finish",
-                ),
-              ),
+            ),
           ],
-        );
-      },
+        ),
+      ),
     );
   }
 
-  // =========================
-  // BUTTON
-  // =========================
-
-  Widget runButton(
-      String text,
-      VoidCallback onTap){
-
+  Widget recentBalls() {
     return SizedBox(
+      height: 45,
+      child: ListView.builder(
+        reverse: true,
+        scrollDirection: Axis.horizontal,
+        itemCount: ballHistory.length,
+        itemBuilder: (context, index) {
+          return Container(
+            width: 45,
+            margin: const EdgeInsets.only(right: 8),
+            decoration: BoxDecoration(
+              color: Colors.orange,
+              shape: BoxShape.circle,
+            ),
+            child: Center(
+              child: Text(
+                ballHistory[index]["ball"],
+                style: const TextStyle(
+                  color: Colors.black,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
 
-      width: 80,
-      height: 60,
-
-      child: ElevatedButton(
-
-        style:
-        ElevatedButton.styleFrom(
-
-          backgroundColor:
-          const Color(
-            0xff1E293B,
-          ),
+  Widget topScoreCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [
+            Color(0xffFF9800),
+            Color(0xffFF6F00),
+          ],
         ),
-
-        onPressed: onTap,
-
-        child: Text(
-
-          text,
-
-          style: const TextStyle(
-
-            fontSize: 22,
-
-            fontWeight:
-            FontWeight.bold,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Column(
+        children: [
+          const Text(
+            "LIVE SCORE",
+            style: TextStyle(
+              color: Colors.black,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.2,
+            ),
           ),
-        ),
+          const SizedBox(height: 12),
+          Text(
+            "$totalRuns/$wickets",
+            style: const TextStyle(
+              color: Colors.black,
+              fontSize: 52,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            "Overs $overText",
+            style: const TextStyle(
+              color: Colors.black,
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-
     return Scaffold(
-
+      backgroundColor: const Color(0xff0F0F0F),
       appBar: AppBar(
-
-        title: Text(
-
-          "${MatchService.teamAName}"
-
-              " vs "
-
-              "${MatchService.teamBName}",
+        backgroundColor: Colors.black,
+        elevation: 0,
+        title: const Text(
+          "Cricket Scorer",
+          style: TextStyle(
+            color: Colors.orange,
+            fontWeight: FontWeight.bold,
+          ),
         ),
+        actions: [
+          IconButton(
+            onPressed: undoBall,
+            icon: const Icon(
+              Icons.undo,
+              color: Colors.orange,
+            ),
+          ),
+        ],
       ),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            children: [
+              topScoreCard(),
 
-      body: SingleChildScrollView(
+              const SizedBox(height: 18),
 
-        padding:
-        const EdgeInsets.all(16),
-
-        child: Column(
-
-          children: [
-
-            // SCORE CARD
-
-            Container(
-
-              width: double.infinity,
-
-              padding:
-              const EdgeInsets.all(20),
-
-              decoration: BoxDecoration(
-
-                color:
-                const Color(
-                  0xff1E293B,
-                ),
-
-                borderRadius:
-                BorderRadius.circular(
-                  20,
-                ),
-              ),
-
-              child: Column(
-
+              Row(
                 children: [
-
-                  Text(
-
-                    "${MatchService.totalRuns}"
-                        "/"
-                        "${MatchService.wickets}",
-
-                    style: const TextStyle(
-
-                      fontSize: 45,
-
-                      fontWeight:
-                      FontWeight.bold,
-
-                      color: Colors.white,
-                    ),
+                  infoCard(
+                    "CRR",
+                    currentRunRate.toStringAsFixed(2),
                   ),
-
-                  const SizedBox(
-                    height: 10,
+                  infoCard(
+                    "Bowler",
+                    bowlerName,
                   ),
-
-                  Text(
-
-                    "Overs "
-                        "${MatchService.over}"
-                        "."
-                        "${MatchService.ball}"
-                        " / "
-                        "${MatchService.totalOvers}",
-
-                    style: const TextStyle(
-
-                      fontSize: 18,
-
-                      color: Colors.white70,
-                    ),
-                  ),
-
-                  const SizedBox(
-                    height: 15,
-                  ),
-
-                  Row(
-
-                    mainAxisAlignment:
-                    MainAxisAlignment
-                        .spaceAround,
-
-                    children: [
-
-                      statBox(
-
-                        "CRR",
-
-                        MatchService
-                            .getCurrentRunRate()
-                            .toStringAsFixed(
-                          2,
-                        ),
-                      ),
-
-                      statBox(
-
-                        "RRR",
-
-                        MatchService
-                            .getRequiredRunRate()
-                            .toStringAsFixed(
-                          2,
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  if(
-
-                  MatchService
-                      .isSecondInnings
-
-                  )
-
-                    Padding(
-
-                      padding:
-                      const EdgeInsets.only(
-                        top: 15,
-                      ),
-
-                      child: Text(
-
-                        "Need "
-                            "${MatchService.getRemainingRuns()}"
-                            " runs in "
-                            "${MatchService.getRemainingBalls()}"
-                            " balls",
-
-                        style: const TextStyle(
-
-                          fontSize: 17,
-
-                          color: Colors.orange,
-
-                          fontWeight:
-                          FontWeight.bold,
-                        ),
-                      ),
-                    ),
                 ],
               ),
-            ),
 
-            const SizedBox(
-              height: 20,
-            ),
+              const SizedBox(height: 20),
 
-            playerCard(
+              batsmanTile(
+                strikerName,
+                strikerRuns,
+                strikerBalls,
+                true,
+              ),
 
-              title: "Striker",
+              batsmanTile(
+                nonStrikerName,
+                nonStrikerRuns,
+                nonStrikerBalls,
+                false,
+              ),
 
-              player: striker,
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: const Color(0xff1A1A1A),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        const Expanded(
+                          child: Text(
+                            "Bowler",
+                            style: TextStyle(
+                              color: Colors.grey,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          bowlerName,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        const Expanded(
+                          child: Text(
+                            "Figures",
+                            style: TextStyle(
+                              color: Colors.grey,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          "$bowlerWickets/$bowlerRuns",
+                          style: const TextStyle(
+                            color: Colors.orange,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
 
-              isStriker: true,
-            ),
+              const SizedBox(height: 18),
 
-            const SizedBox(
-              height: 15,
-            ),
+              recentBalls(),
 
-            playerCard(
+              const SizedBox(height: 18),
 
-              title: "Non Striker",
+              Row(
+                children: [
+                  scoreButton("0", () => addRuns(0)),
+                  scoreButton("1", () => addRuns(1)),
+                  scoreButton("2", () => addRuns(2)),
+                ],
+              ),
 
-              player: nonStriker,
-            ),
+              Row(
+                children: [
+                  scoreButton("3", () => addRuns(3)),
+                  scoreButton("4", () => addRuns(4)),
+                  scoreButton("6", () => addRuns(6)),
+                ],
+              ),
 
-            const SizedBox(
-              height: 15,
-            ),
+              Row(
+                children: [
+                  scoreButton("WD", addWide),
+                  scoreButton(
+                    "NB",
+                    () {
+                      showModalBottomSheet(
+                        context: context,
+                        backgroundColor: Colors.black,
+                        builder: (context) {
+                          return Container(
+                            padding: const EdgeInsets.all(20),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Text(
+                                  "No Ball Runs",
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 20),
+                                Row(
+                                  children: [
+                                    scoreButton(
+                                      "0",
+                                      () {
+                                        Navigator.pop(context);
+                                        addNoBall(0);
+                                      },
+                                    ),
+                                    scoreButton(
+                                      "1",
+                                      () {
+                                        Navigator.pop(context);
+                                        addNoBall(1);
+                                      },
+                                    ),
+                                    scoreButton(
+                                      "2",
+                                      () {
+                                        Navigator.pop(context);
+                                        addNoBall(2);
+                                      },
+                                    ),
+                                  ],
+                                ),
+                                Row(
+                                  children: [
+                                    scoreButton(
+                                      "4",
+                                      () {
+                                        Navigator.pop(context);
+                                        addNoBall(4);
+                                      },
+                                    ),
+                                    scoreButton(
+                                      "6",
+                                      () {
+                                        Navigator.pop(context);
+                                        addNoBall(6);
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  ),
+                  scoreButton("W", addWicket),
+                ],
+              ),
 
-            bowlerCard(),
+              Row(
+                children: [
+                  scoreButton(
+                    "RO",
+                    addRunOut,
+                  ),
+                  scoreButton(
+                    "UNDO",
+                    undoBall,
+                  ),
+                ],
+              ),
 
-            const SizedBox(
-              height: 25,
-            ),
-
-            Wrap(
-
-              spacing: 10,
-
-              runSpacing: 10,
-
-              children: [
-
-                runButton("0", (){
-                  addRun(0);
-                }),
-
-                runButton("1", (){
-                  addRun(1);
-                }),
-
-                runButton("2", (){
-                  addRun(2);
-                }),
-
-                runButton("3", (){
-                  addRun(3);
-                }),
-
-                runButton("4", (){
-                  addRun(4);
-                }),
-
-                runButton("6", (){
-                  addRun(6);
-                }),
-
-                runButton("W", (){
-                  addWicket();
-                }),
-
-                runButton("RO", (){
-                  addRunOut();
-                }),
-
-                runButton("WD", (){
-                  addWide();
-                }),
-
-                runButton("NB", (){
-                  addNoBall();
-                }),
-              ],
-            ),
-
-            const SizedBox(
-              height: 25,
-            ),
-          ],
+              const SizedBox(height: 30),
+            ],
+          ),
         ),
       ),
     );

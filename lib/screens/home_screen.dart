@@ -227,7 +227,13 @@ class _HomeScreenState
                         builder:
                             (context) =>
 
-                        const LiveScoreScreen(),
+                        LiveScoreScreen(
+  matchData: {
+    "striker": "Batsman 1",
+    "nonStriker": "Batsman 2",
+    "bowler": "Bowler",
+  },
+),
                       ),
                     );
                   },

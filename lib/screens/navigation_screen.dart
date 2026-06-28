@@ -8,23 +8,14 @@ import 'live_score_screen.dart';
 import 'match_history_screen.dart';
 import 'start_match_screen.dart';
 
-class NavigationScreen
-    extends StatefulWidget {
-
-  NavigationScreen({
-    super.key,
-  });
+class NavigationScreen extends StatefulWidget {
+  NavigationScreen({super.key});
 
   @override
-  State<NavigationScreen>
-  createState() =>
-
-      _NavigationScreenState();
+  State<NavigationScreen> createState() => _NavigationScreenState();
 }
 
-class _NavigationScreenState
-    extends State<NavigationScreen> {
-
+class _NavigationScreenState extends State<NavigationScreen> {
   // =========================
   // INDEX
   // =========================
@@ -50,18 +41,11 @@ class _NavigationScreenState
   // CHECK MATCH
   // =========================
 
-  Future<void>
-  checkLiveMatch() async {
-
-    bool matchExists =
-
-    await MatchStorageService
-        .hasSavedMatch();
+  Future<void> checkLiveMatch() async {
+    bool matchExists = await MatchStorageService.hasSavedMatch();
 
     setState(() {
-
-      hasLiveMatch =
-          matchExists;
+      hasLiveMatch = matchExists;
 
       isLoading = false;
     });
@@ -72,7 +56,6 @@ class _NavigationScreenState
   // =========================
 
   List<Widget> get pages => [
-
     homePage(),
 
     const AddPlayerScreen(),
@@ -84,100 +67,68 @@ class _NavigationScreenState
   // HOME PAGE
   // =========================
 
-  Widget homePage(){
-
+  Widget homePage() {
     return Padding(
-
-      padding:
-      const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(20),
 
       child: Column(
-
         children: [
-
-          const SizedBox(
-            height: 20,
-          ),
+          const SizedBox(height: 20),
 
           // RESUME MATCH
-
-          if(hasLiveMatch)
-
+          if (hasLiveMatch)
             homeButton(
+              title: "Resume Match",
 
-              title:
-              "Resume Match",
+              icon: Icons.play_circle,
 
-              icon:
-              Icons.play_circle,
-
-              color:
-              Colors.orange,
+              color: Colors.orange,
 
               onTap: () async {
+                await MatchStorageService.loadMatch();
 
-                await MatchStorageService
-                    .loadMatch();
-
-                if(context.mounted){
-
+                if (context.mounted) {
                   Navigator.push(
-
                     context,
 
                     MaterialPageRoute(
-
-                      builder:
-                          (context){
-
-                        return const
-                        LiveScoreScreen();
+                      builder: (context) {
+                        return LiveScoreScreen(
+                          matchData: {
+                            "striker": "Batsman 1",
+                            "nonStriker": "Batsman 2",
+                            "bowler": "Bowler",
+                          },
+                        );
                       },
                     ),
-                  ).then((value){
-
+                  ).then((value) {
                     checkLiveMatch();
                   });
                 }
               },
             ),
 
-          if(hasLiveMatch)
-
-            const SizedBox(
-              height: 20,
-            ),
+          if (hasLiveMatch) const SizedBox(height: 20),
 
           // START MATCH
-
           homeButton(
+            title: "Start Match",
 
-            title:
-            "Start Match",
+            icon: Icons.sports_cricket,
 
-            icon:
-            Icons.sports_cricket,
-
-            color:
-            Colors.green,
+            color: Colors.green,
 
             onTap: () {
-
               Navigator.push(
-
                 context,
 
                 MaterialPageRoute(
-
-                  builder:
-                      (context){
-
-                    return const
-                    StartMatchScreen();
+                  builder: (context) {
+                    return const StartMatchScreen();
                   },
                 ),
-              ).then((value){
-
+              ).then((value) {
                 checkLiveMatch();
               });
             },
@@ -185,69 +136,29 @@ class _NavigationScreenState
 
           const Spacer(),
 
-          const Icon(
+          const Icon(Icons.sports_cricket, size: 90, color: Colors.green),
 
-            Icons.sports_cricket,
-
-            size: 90,
-
-            color: Colors.green,
-          ),
-
-          const SizedBox(
-            height: 20,
-          ),
+          const SizedBox(height: 20),
 
           const Text(
-
             "Cricket Scorer App",
 
-            style: TextStyle(
-
-              fontSize: 26,
-
-              fontWeight:
-              FontWeight.bold,
-            ),
+            style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
           ),
 
-          const SizedBox(
-            height: 10,
-          ),
+          const SizedBox(height: 10),
 
           Text(
-
-            hasLiveMatch
-
-                ?
-
-            "Live Match Available"
-
-                :
-
-            "No Active Match",
+            hasLiveMatch ? "Live Match Available" : "No Active Match",
 
             style: TextStyle(
-
               fontSize: 18,
 
-              color:
-
-              hasLiveMatch
-
-                  ?
-
-              Colors.orange
-
-                  :
-
-              Colors.grey,
+              color: hasLiveMatch ? Colors.orange : Colors.grey,
             ),
           ),
 
-          const SizedBox(
-            height: 30,
-          ),
+          const SizedBox(height: 30),
         ],
       ),
     );
@@ -258,7 +169,6 @@ class _NavigationScreenState
   // =========================
 
   Widget homeButton({
-
     required String title,
 
     required IconData icon,
@@ -266,54 +176,34 @@ class _NavigationScreenState
     required Color color,
 
     required VoidCallback onTap,
-
   }) {
-
     return SizedBox(
-
-      width:
-      double.infinity,
+      width: double.infinity,
 
       height: 75,
 
       child: ElevatedButton.icon(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: color,
 
-        style:
-        ElevatedButton.styleFrom(
-
-          backgroundColor:
-          color,
-
-          shape:
-          RoundedRectangleBorder(
-
-            borderRadius:
-            BorderRadius.circular(
-              18,
-            ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
           ),
         ),
 
         onPressed: onTap,
 
-        icon: Icon(
-          icon,
-          color: Colors.white,
-        ),
+        icon: Icon(icon, color: Colors.white),
 
         label: Text(
-
           title,
 
           style: const TextStyle(
-
             fontSize: 20,
 
-            color:
-            Colors.white,
+            color: Colors.white,
 
-            fontWeight:
-            FontWeight.bold,
+            fontWeight: FontWeight.bold,
           ),
         ),
       ),
@@ -322,74 +212,30 @@ class _NavigationScreenState
 
   @override
   Widget build(BuildContext context) {
-
     return Scaffold(
-
-      appBar: AppBar(
-
-        title: const Text(
-          "Cricket Scorer",
-        ),
-
-        centerTitle: true,
-      ),
+      appBar: AppBar(title: const Text("Cricket Scorer"), centerTitle: true),
 
       body: isLoading
-
-          ? const Center(
-        child:
-        CircularProgressIndicator(),
-      )
-
+          ? const Center(child: CircularProgressIndicator())
           : pages[currentIndex],
 
-      bottomNavigationBar:
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: currentIndex,
 
-      BottomNavigationBar(
-
-        currentIndex:
-        currentIndex,
-
-        onTap: (index){
-
+        onTap: (index) {
           setState(() {
-
-            currentIndex =
-                index;
+            currentIndex = index;
           });
         },
 
-        selectedItemColor:
-        Colors.green,
+        selectedItemColor: Colors.green,
 
         items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: "Home"),
 
-          BottomNavigationBarItem(
+          BottomNavigationBarItem(icon: Icon(Icons.people), label: "Players"),
 
-            icon: Icon(
-              Icons.home,
-            ),
-
-            label: "Home",
-          ),
-
-          BottomNavigationBarItem(
-
-            icon: Icon(
-              Icons.people,
-            ),
-
-            label: "Players",
-          ),
-
-          BottomNavigationBarItem(
-
-            icon: Icon(
-              Icons.history,
-            ),
-
-            label: "History",
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.history), label: "History"),
         ],
       ),
     );

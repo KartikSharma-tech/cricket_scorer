@@ -98,20 +98,18 @@ class _MatchSetupScreenState
 
     // OPEN LIVE SCORE
 
-    Navigator.pushReplacement(
-
-      context,
-
-      MaterialPageRoute(
-
-        builder: (context){
-
-          return const
-          LiveScoreScreen();
-        },
-      ),
-    );
-  }
+   Navigator.pushReplacement(
+  context,
+  MaterialPageRoute(
+    builder: (context) {
+      return LiveScoreScreen(
+        final player1Controller = TextEditingController();
+final player2Controller = TextEditingController();
+final bowlerController = TextEditingController();
+      );
+    },
+  ),
+);
 
   @override
   Widget build(BuildContext context) {
