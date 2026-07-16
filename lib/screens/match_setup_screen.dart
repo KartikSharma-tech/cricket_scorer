@@ -7,17 +7,12 @@ import '../services/match_storage_service.dart';
 
 import 'live_score_screen.dart';
 
-class MatchSetupScreen
-    extends StatefulWidget {
+class MatchSetupScreen extends StatefulWidget {
+  final List<PlayerModel> battingPlayers;
 
-  final List<PlayerModel>
-  battingPlayers;
-
-  final List<PlayerModel>
-  bowlingPlayers;
+  final List<PlayerModel> bowlingPlayers;
 
   const MatchSetupScreen({
-
     super.key,
 
     required this.battingPlayers,
@@ -26,383 +21,239 @@ class MatchSetupScreen
   });
 
   @override
-  State<MatchSetupScreen>
-  createState() =>
-
-      _MatchSetupScreenState();
+  State<MatchSetupScreen> createState() => _MatchSetupScreenState();
 }
 
-class _MatchSetupScreenState
-    extends State<MatchSetupScreen> {
-
+class _MatchSetupScreenState extends State<MatchSetupScreen> {
   // =========================
   // SELECTED PLAYERS
   // =========================
 
-  PlayerModel?
-  selectedStriker;
+  PlayerModel? selectedStriker;
 
-  PlayerModel?
-  selectedNonStriker;
+  PlayerModel? selectedNonStriker;
 
-  PlayerModel?
-  selectedBowler;
+  PlayerModel? selectedBowler;
 
   // =========================
   // START MATCH
   // =========================
 
-  Future<void>
-  startMatch() async {
-
-    if(
-
-    selectedStriker == null ||
-
+  Future<void> startMatch() async {
+    if (selectedStriker == null ||
         selectedNonStriker == null ||
-
-        selectedBowler == null
-
-    ){
-
+        selectedBowler == null) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(
-
-        const SnackBar(
-
-          content: Text(
-            "Select all players",
-          ),
-        ),
-      );
+      ).showSnackBar(const SnackBar(content: Text("Select all players")));
 
       return;
     }
 
     // SAVE PLAYERS
 
-    MatchService.striker =
-        selectedStriker;
+    MatchService.striker = selectedStriker;
 
-    MatchService.nonStriker =
-        selectedNonStriker;
+    MatchService.nonStriker = selectedNonStriker;
 
-    MatchService.currentBowler =
-        selectedBowler;
+    MatchService.currentBowler = selectedBowler;
 
     // SAVE MATCH
 
-    await MatchStorageService
-        .saveMatch();
+    await MatchStorageService.saveMatch();
 
     // OPEN LIVE SCORE
 
-   Navigator.pushReplacement(
-  context,
-  MaterialPageRoute(
-    builder: (context) {
-      return LiveScoreScreen(
-        final player1Controller = TextEditingController();
-final player2Controller = TextEditingController();
-final bowlerController = TextEditingController();
-      );
-    },
-  ),
-);
+    //    Navigator.pushReplacement(
+    //   context,
+    //   MaterialPageRoute(
+    //     builder: (context) {
+    //       return LiveScoreScreen(
+    //         final player1Controller = TextEditingController();
+    // final player2Controller = TextEditingController();
+    // final bowlerController = TextEditingController();
+    //       );
+    //     },
+    //   ),
+    // );
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (context) {
+          return LiveScoreScreen(
+            matchData: {
+              "striker": selectedStriker!.name,
+              "nonStriker": selectedNonStriker!.name,
+              "bowler": selectedBowler!.name,
+            },
+          );
+        },
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-
     return Scaffold(
-
-      appBar: AppBar(
-
-        title: const Text(
-          "Match Setup",
-        ),
-
-        centerTitle: true,
-      ),
+      appBar: AppBar(title: const Text("Match Setup"), centerTitle: true),
 
       body: SingleChildScrollView(
-
-        padding:
-        const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(20),
 
         child: Column(
-
-          crossAxisAlignment:
-          CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.start,
 
           children: [
-
             // =========================
             // STRIKER
             // =========================
-
             const Text(
-
               "Select Striker",
 
-              style: TextStyle(
-
-                fontSize: 20,
-
-                fontWeight:
-                FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
 
-            const SizedBox(
-              height: 10,
-            ),
+            const SizedBox(height: 10),
 
-            DropdownButtonFormField<
-                PlayerModel>(
+            DropdownButtonFormField<PlayerModel>(
+              value: selectedStriker,
 
-              value:
-              selectedStriker,
-
-              decoration:
-              InputDecoration(
-
-                border:
-                OutlineInputBorder(
-
-                  borderRadius:
-                  BorderRadius.circular(
-                    15,
-                  ),
+              decoration: InputDecoration(
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(15),
                 ),
               ),
 
-              items:
-
-              widget.battingPlayers
-                  .map((player){
-
+              items: widget.battingPlayers.map((player) {
                 return DropdownMenuItem(
-
                   value: player,
 
-                  child:
-                  Text(player.name),
+                  child: Text(player.name),
                 );
-
               }).toList(),
 
-              onChanged: (value){
-
+              onChanged: (value) {
                 setState(() {
-
-                  selectedStriker =
-                      value;
+                  selectedStriker = value;
 
                   // SAME PLAYER FIX
 
-                  if(selectedStriker ==
-                      selectedNonStriker){
-
-                    selectedNonStriker =
-                    null;
+                  if (selectedStriker == selectedNonStriker) {
+                    selectedNonStriker = null;
                   }
                 });
               },
             ),
 
-            const SizedBox(
-              height: 25,
-            ),
+            const SizedBox(height: 25),
 
             // =========================
             // NON STRIKER
             // =========================
-
             const Text(
-
               "Select Non Striker",
 
-              style: TextStyle(
-
-                fontSize: 20,
-
-                fontWeight:
-                FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
 
-            const SizedBox(
-              height: 10,
-            ),
+            const SizedBox(height: 10),
 
-            DropdownButtonFormField<
-                PlayerModel>(
+            DropdownButtonFormField<PlayerModel>(
+              value: selectedNonStriker,
 
-              value:
-              selectedNonStriker,
-
-              decoration:
-              InputDecoration(
-
-                border:
-                OutlineInputBorder(
-
-                  borderRadius:
-                  BorderRadius.circular(
-                    15,
-                  ),
+              decoration: InputDecoration(
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(15),
                 ),
               ),
 
-              items:
+              items: widget.battingPlayers
+                  .where((player) {
+                    return player != selectedStriker;
+                  })
+                  .map((player) {
+                    return DropdownMenuItem(
+                      value: player,
 
-              widget.battingPlayers
-                  .where((player){
+                      child: Text(player.name),
+                    );
+                  })
+                  .toList(),
 
-                return player !=
-                    selectedStriker;
-
-              }).map((player){
-
-                return DropdownMenuItem(
-
-                  value: player,
-
-                  child:
-                  Text(player.name),
-                );
-
-              }).toList(),
-
-              onChanged: (value){
-
+              onChanged: (value) {
                 setState(() {
-
-                  selectedNonStriker =
-                      value;
+                  selectedNonStriker = value;
                 });
               },
             ),
 
-            const SizedBox(
-              height: 25,
-            ),
+            const SizedBox(height: 25),
 
             // =========================
             // BOWLER
             // =========================
-
             const Text(
-
               "Select Opening Bowler",
 
-              style: TextStyle(
-
-                fontSize: 20,
-
-                fontWeight:
-                FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
 
-            const SizedBox(
-              height: 10,
-            ),
+            const SizedBox(height: 10),
 
-            DropdownButtonFormField<
-                PlayerModel>(
+            DropdownButtonFormField<PlayerModel>(
+              value: selectedBowler,
 
-              value:
-              selectedBowler,
-
-              decoration:
-              InputDecoration(
-
-                border:
-                OutlineInputBorder(
-
-                  borderRadius:
-                  BorderRadius.circular(
-                    15,
-                  ),
+              decoration: InputDecoration(
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(15),
                 ),
               ),
 
-              items:
-
-              widget.bowlingPlayers
-                  .map((player){
-
+              items: widget.bowlingPlayers.map((player) {
                 return DropdownMenuItem(
-
                   value: player,
 
-                  child:
-                  Text(player.name),
+                  child: Text(player.name),
                 );
-
               }).toList(),
 
-              onChanged: (value){
-
+              onChanged: (value) {
                 setState(() {
-
-                  selectedBowler =
-                      value;
+                  selectedBowler = value;
                 });
               },
             ),
 
-            const SizedBox(
-              height: 40,
-            ),
+            const SizedBox(height: 40),
 
             // =========================
             // START BUTTON
             // =========================
-
             SizedBox(
-
-              width:
-              double.infinity,
+              width: double.infinity,
 
               height: 65,
 
               child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
 
-                style:
-                ElevatedButton.styleFrom(
-
-                  backgroundColor:
-                  Colors.green,
-
-                  shape:
-                  RoundedRectangleBorder(
-
-                    borderRadius:
-                    BorderRadius.circular(
-                      18,
-                    ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(18),
                   ),
                 ),
 
-                onPressed:
-                startMatch,
+                onPressed: startMatch,
 
                 child: const Text(
-
                   "Start Live Match",
 
                   style: TextStyle(
-
                     fontSize: 20,
 
-                    color:
-                    Colors.white,
+                    color: Colors.white,
 
-                    fontWeight:
-                    FontWeight.bold,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ),

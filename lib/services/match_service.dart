@@ -2,7 +2,6 @@ import '../models/player_model.dart';
 import '../models/ball_model.dart';
 
 class MatchService {
-
   // =========================
   // TEAM INFO
   // =========================
@@ -54,25 +53,21 @@ class MatchService {
   // =========================
 
   static String resultText = "";
-// =========================
-// BALL HISTORY
-// =========================
+  // =========================
+  // BALL HISTORY
+  // =========================
 
-static List<BallModel>
-ballHistory = [];
+  static List<BallModel> ballHistory = [];
 
   // =========================
   // PLAYERS
   // =========================
 
-  static List<PlayerModel>
-  battingPlayers = [];
+  static List<PlayerModel> battingPlayers = [];
 
-  static List<PlayerModel>
-  bowlingPlayers = [];
+  static List<PlayerModel> bowlingPlayers = [];
 
-  static List<PlayerModel>
-  outPlayers = [];
+  static List<PlayerModel> outPlayers = [];
 
   static PlayerModel? striker;
 
@@ -84,8 +79,7 @@ ballHistory = [];
   // RESET MATCH
   // =========================
 
-  static void resetMatch(){
-
+  static void resetMatch() {
     totalRuns = 0;
 
     wickets = 0;
@@ -112,28 +106,23 @@ ballHistory = [];
 
     isMatchEnded = false;
 
-    outPlayers.clear();
-
-    battingPlayers.clear();
-
-    bowlingPlayers.clear();
+    outPlayers = [];
+    battingPlayers = [];
+    bowlingPlayers = [];
 
     striker = null;
-
     nonStriker = null;
-
     currentBowler = null;
-    
-    ballHistory.clear();
+
+    ballHistory = [];
   }
 
   // =========================
   // RESET INNINGS
   // =========================
 
-  static void resetInnings(){
-
-
+  static void resetInnings() {
+    ballHistory = [];
     totalRuns = 0;
 
     wickets = 0;
@@ -160,21 +149,9 @@ ballHistory = [];
 
     // RESET PLAYER STATS
 
-    List<PlayerModel>
-    allPlayers = [
+    List<PlayerModel> allPlayers = [...battingPlayers, ...bowlingPlayers];
 
-      ...battingPlayers,
-
-      ...bowlingPlayers,
-    ];
-
-    for(
-
-    PlayerModel player
-    in allPlayers
-
-    ){
-
+    for (PlayerModel player in allPlayers) {
       player.runs = 0;
 
       player.balls = 0;
@@ -186,47 +163,31 @@ ballHistory = [];
       player.wickets = 0;
     }
   }
-  static void resetPlayerStats(){
 
-  List<PlayerModel>
-  allPlayers = [
+  static void resetPlayerStats() {
+    List<PlayerModel> allPlayers = [...battingPlayers, ...bowlingPlayers];
 
-    ...battingPlayers,
+    for (PlayerModel player in allPlayers) {
+      player.runs = 0;
 
-    ...bowlingPlayers,
-  ];
+      player.balls = 0;
 
-  for(
+      player.runsGiven = 0;
 
-  PlayerModel player
-  in allPlayers
+      player.ballsBowled = 0;
 
-  ){
-
-    player.runs = 0;
-
-    player.balls = 0;
-
-    player.runsGiven = 0;
-
-    player.ballsBowled = 0;
-
-    player.wickets = 0;
+      player.wickets = 0;
+    }
   }
-}
 
   // =========================
   // CURRENT RUN RATE
   // =========================
 
-  static double getCurrentRunRate(){
+  static double getCurrentRunRate() {
+    double oversPlayed = over + (ball / 6);
 
-    double oversPlayed =
-
-        over + (ball / 6);
-
-    if(oversPlayed == 0){
-
+    if (oversPlayed == 0) {
       return 0;
     }
 
@@ -237,101 +198,94 @@ ballHistory = [];
   // REQUIRED RUN RATE
   // =========================
 
-  static double getRequiredRunRate(){
-
-    if(!isSecondInnings){
-
+  static double getRequiredRunRate() {
+    if (!isSecondInnings) {
       return 0;
     }
 
-    int remainingRuns =
+    int remainingRuns = target - totalRuns;
 
-        target - totalRuns;
+    int remainingBalls = (totalOvers * 6) - ((over * 6) + ball);
 
-    int remainingBalls =
-
-        (totalOvers * 6)
-
-            -
-
-            ((over * 6) + ball);
-
-    if(remainingBalls <= 0){
-
+    if (remainingBalls <= 0) {
       return 0;
     }
 
-    double remainingOvers =
+    double remainingOvers = remainingBalls / 6;
 
-        remainingBalls / 6;
-
-    return remainingRuns /
-        remainingOvers;
+    return remainingRuns / remainingOvers;
   }
 
   // =========================
   // REMAINING BALLS
   // =========================
 
-  static int getRemainingBalls(){
-
-    return
-
-        (totalOvers * 6)
-
-            -
-
-            ((over * 6) + ball);
+  static int getRemainingBalls() {
+    return (totalOvers * 6) - ((over * 6) + ball);
   }
 
   // =========================
   // REMAINING RUNS
   // =========================
 
-  static int getRemainingRuns(){
-
-    return target - totalRuns;
+  static int getRemainingRuns() {
+    return (target - totalRuns).clamp(0, 999999);
   }
 
   // =========================
   // TOTAL EXTRAS
   // =========================
 
-  static int getTotalExtras(){
-
-    return
-
-        wides +
-            noBalls +
-            byes +
-            legByes;
+  static int getTotalExtras() {
+    return wides + noBalls + byes + legByes;
   }
 
   // =========================
   // CHECK WINNER
   // =========================
+  // =========================
+  // MATCH HELPERS
+  // =========================
 
-  static void checkWinner(){
+  static bool get oversCompleted {
+    return over >= totalOvers;
+  }
 
+  static bool get allOut {
+    return wickets >= battingPlayers.length;
+  }
+
+  static bool get inningsCompleted {
+    return oversCompleted || allOut;
+  }
+
+  static int get wicketsRemaining {
+    int remaining = battingPlayers.length - wickets;
+    return remaining < 0 ? 0 : remaining;
+  }
+
+  static bool get targetAchieved {
+    if (!isSecondInnings) {
+      return false;
+    }
+
+    return totalRuns >= target;
+  }
+
+  static void checkWinner() {
     // SECOND INNINGS ONLY
 
-    if(!isSecondInnings){
+    if (!isSecondInnings) {
       return;
     }
 
     // CHASE COMPLETE
 
-    if(totalRuns >= target){
-
-      int wicketsLeft =
-
-          battingPlayers.length
-              - wickets;
+    if (totalRuns >= target) {
+      int wicketsLeft = wicketsRemaining;
 
       resultText =
-
-      "$teamBName won by "
-
+          "$teamBName won by "
           "$wicketsLeft wickets";
 
       isMatchEnded = true;
@@ -341,38 +295,18 @@ ballHistory = [];
 
     // OVERS COMPLETE
 
-    bool oversFinished =
+    bool oversFinished = oversCompleted;
 
-        over >= totalOvers;
+    bool teamAllOut = allOut;
 
-    bool allOut =
-
-        wickets >=
-            battingPlayers.length;
-
-    if(
-
-    oversFinished ||
-        allOut
-
-    ){
-
-      if(totalRuns == firstInningsScore){
+    if (oversFinished || teamAllOut) {
+      if (totalRuns == firstInningsScore) {
+        resultText = "Match Tied";
+      } else {
+        int runMargin = firstInningsScore - totalRuns;
 
         resultText =
-        "Match Tied";
-
-      }else{
-
-        int runMargin =
-
-            firstInningsScore
-                - totalRuns;
-
-        resultText =
-
-        "$teamAName won by "
-
+            "$teamAName won by "
             "$runMargin runs";
       }
 
