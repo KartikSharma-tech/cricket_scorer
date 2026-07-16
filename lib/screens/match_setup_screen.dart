@@ -81,11 +81,23 @@ class _MatchSetupScreenState extends State<MatchSetupScreen> {
       MaterialPageRoute(
         builder: (context) {
           return LiveScoreScreen(
-            matchData: {
-              "striker": selectedStriker!.name,
-              "nonStriker": selectedNonStriker!.name,
-              "bowler": selectedBowler!.name,
-            },
+           matchData: {
+  "striker": selectedStriker!.name,
+  "nonStriker": selectedNonStriker!.name,
+  "bowler": selectedBowler!.name,
+
+  "battingPlayers":
+      widget.battingPlayers
+          .map((e) => e.name)
+          .toList(),
+
+  "bowlingPlayers":
+      widget.bowlingPlayers
+          .map((e) => e.name)
+          .toList(),
+
+  "players": widget.battingPlayers.length,
+}
           );
         },
       ),

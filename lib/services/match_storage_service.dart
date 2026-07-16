@@ -249,23 +249,39 @@ class MatchStorageService {
 
     // STRIKER
 
-    MatchService.striker = MatchService.battingPlayers.firstWhere((player) {
-      return player.id == strikerId;
-    });
+   MatchService.striker = MatchService.battingPlayers.where((player) {
+  return player.id == strikerId;
+}).isNotEmpty
+    ? MatchService.battingPlayers.firstWhere(
+        (player) => player.id == strikerId,
+      )
+    : (MatchService.battingPlayers.isNotEmpty
+        ? MatchService.battingPlayers.first
+        : null);
 
     // NON STRIKER
 
-    MatchService.nonStriker = MatchService.battingPlayers.firstWhere((player) {
-      return player.id == nonStrikerId;
-    });
+    MatchService.nonStriker = MatchService.battingPlayers.where((player) {
+  return player.id == nonStrikerId;
+}).isNotEmpty
+    ? MatchService.battingPlayers.firstWhere(
+        (player) => player.id == nonStrikerId,
+      )
+    : (MatchService.battingPlayers.length > 1
+        ? MatchService.battingPlayers[1]
+        : null);
 
     // BOWLER
 
-    MatchService.currentBowler = MatchService.bowlingPlayers.firstWhere((
-      player,
-    ) {
-      return player.id == bowlerId;
-    });
+   MatchService.currentBowler = MatchService.bowlingPlayers.where((player) {
+  return player.id == bowlerId;
+}).isNotEmpty
+    ? MatchService.bowlingPlayers.firstWhere(
+        (player) => player.id == bowlerId,
+      )
+    : (MatchService.bowlingPlayers.isNotEmpty
+        ? MatchService.bowlingPlayers.first
+        : null);
 
     // OUT PLAYERS
 

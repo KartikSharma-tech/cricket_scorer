@@ -4,7 +4,7 @@ import '../models/player_model.dart';
 
 import '../services/player_service.dart';
 import '../services/match_service.dart';
-
+import 'package:shared_preferences/shared_preferences.dart';
 import 'match_setup_screen.dart';
 
 class StartMatchScreen
@@ -163,7 +163,7 @@ class _StartMatchScreenState
   // START MATCH
   // =========================
 
-  void startMatch(){
+  Future<void> startMatch() async {
 
     String teamA =
     teamAController.text
@@ -211,6 +211,10 @@ class _StartMatchScreenState
     // RESET MATCH
 
     MatchService.resetMatch();
+    SharedPreferences prefs =
+    await SharedPreferences.getInstance();
+
+await prefs.remove("live_match");
 
     // SAVE MATCH INFO
 

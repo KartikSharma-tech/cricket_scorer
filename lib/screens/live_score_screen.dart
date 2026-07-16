@@ -6,10 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class LiveScoreScreen extends StatefulWidget {
   final Map<String, dynamic> matchData;
 
-  const LiveScoreScreen({
-    super.key,
-    required this.matchData,
-  });
+  const LiveScoreScreen({super.key, required this.matchData});
 
   @override
   State<LiveScoreScreen> createState() => _LiveScoreScreenState();
@@ -35,11 +32,18 @@ class _LiveScoreScreenState extends State<LiveScoreScreen> {
   String strikerName = "Batsman 1";
   String nonStrikerName = "Batsman 2";
   String bowlerName = "Bowler";
+  String previousBowler = "";
+
+  List<String> bowlingPlayers = [];
 
   bool lastManBatting = true;
 
+  int totalPlayers = 11;
+
   List<Map<String, dynamic>> ballHistory = [];
 
+  List<String> outPlayers = [];
+  @override
   @override
   void initState() {
     super.initState();
@@ -47,6 +51,12 @@ class _LiveScoreScreenState extends State<LiveScoreScreen> {
     strikerName = widget.matchData["striker"] ?? "Batsman 1";
     nonStrikerName = widget.matchData["nonStriker"] ?? "Batsman 2";
     bowlerName = widget.matchData["bowler"] ?? "Bowler";
+previousBowler = bowlerName;
+    totalPlayers = widget.matchData["players"] ?? 11;
+
+    bowlingPlayers = widget.matchData["bowlingPlayers"] != null
+        ? List<String>.from(widget.matchData["bowlingPlayers"])
+        : [];
 
     loadMatch();
   }
@@ -83,18 +93,19 @@ class _LiveScoreScreenState extends State<LiveScoreScreen> {
       "strikerName": strikerName,
       "nonStrikerName": nonStrikerName,
       "bowlerName": bowlerName,
+      "previousBowler": previousBowler,
       "ballHistory": ballHistory,
     };
 
-    prefs.setString(
-      "live_match",
-      jsonEncode(data),
-    );
+    prefs.setString("live_match", jsonEncode(data));
   }
 
   Future<void> loadMatch() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
 
+    // // prefs.remove("live_match");
+    // return;
+    //
     String? data = prefs.getString("live_match");
 
     if (data == null) {
@@ -120,13 +131,14 @@ class _LiveScoreScreenState extends State<LiveScoreScreen> {
       bowlerWickets = decoded["bowlerWickets"];
       bowlerBalls = decoded["bowlerBalls"];
 
-      strikerName = decoded["strikerName"];
-      nonStrikerName = decoded["nonStrikerName"];
-      bowlerName = decoded["bowlerName"];
+      strikerName = decoded["strikerName"] ?? strikerName;
 
-      ballHistory = List<Map<String, dynamic>>.from(
-        decoded["ballHistory"],
-      );
+      nonStrikerName = decoded["nonStrikerName"] ?? nonStrikerName;
+
+      bowlerName = decoded["bowlerName"] ?? bowlerName;
+previousBowler =
+    decoded["previousBowler"] ?? "";
+      ballHistory = List<Map<String, dynamic>>.from(decoded["ballHistory"]);
     });
   }
 
@@ -156,20 +168,11 @@ class _LiveScoreScreenState extends State<LiveScoreScreen> {
     }
   }
 
-  void addBallHistory(
-    String value,
-  ) {
-    ballHistory.insert(
-      0,
-      {
-        "ball": value,
-      },
-    );
+  void addBallHistory(String value) {
+    ballHistory.insert(0, {"ball": value});
   }
 
-  void addRuns(
-    int run,
-  ) {
+  void addRuns(int run) {
     setState(() {
       totalRuns += run;
 
@@ -180,15 +183,18 @@ class _LiveScoreScreenState extends State<LiveScoreScreen> {
 
       addBallHistory(run.toString());
 
+      bool changeStrike = run == 1 || run == 3 || run == 5;
+
       completeBall();
 
-      if (run == 1 || run == 3 || run == 5) {
+      if (changeStrike) {
         rotateStrike();
       }
     });
 
     saveMatch();
   }
+  // TODO: Support Wide + Running (WD+1, WD+2, WD+3...) ye fucture meadd krna h
 
   void addWide() {
     setState(() {
@@ -196,26 +202,27 @@ class _LiveScoreScreenState extends State<LiveScoreScreen> {
 
       bowlerRuns += 1;
 
-      addBallHistory("WD");
+      // addBallHistory("WD");
+      addBallHistory("WD1");
     });
 
     saveMatch();
   }
 
-  void addNoBall(
-    int batRun,
-  ) {
+  void addNoBall(int batRun) {
     setState(() {
       totalRuns += batRun + 1;
 
       strikerRuns += batRun;
-      strikerBalls++;
+      // strikerBalls++;
 
       bowlerRuns += batRun + 1;
 
-      addBallHistory("NB+$batRun");
+      // addBallHistory("NB+$batRun");
+      addBallHistory("NB${batRun + 1}");
+      bool changeStrike = batRun == 1 || batRun == 3 || batRun == 5;
 
-      if (batRun == 1 || batRun == 3 || batRun == 5) {
+      if (changeStrike) {
         rotateStrike();
       }
     });
@@ -223,82 +230,122 @@ class _LiveScoreScreenState extends State<LiveScoreScreen> {
     saveMatch();
   }
 
-  void addWicket() {
-  if (wickets >= 10) {
-    return;
+  Future<void> addWicket() async {
+    if (wickets >= totalPlayers - (lastManBatting ? 1 : 0)) {
+      return;
+    }
+
+    setState(() {
+      wickets++;
+      outPlayers.add(strikerName);
+      bowlerWickets++;
+
+      strikerBalls++;
+
+      addBallHistory("W");
+
+      completeBall();
+
+      if (wickets >= totalPlayers - (lastManBatting ? 1 : 0)) {
+        showAllOutDialog();
+        Navigator.pop(context);
+        return;
+      }
+
+      if (lastManBatting && wickets == 9) {
+        return;
+      }
+
+      // strikerName = "New Batsman";
+      // strikerRuns = 0;
+      // strikerBalls = 0;
+    });
+    await selectNextBatsman();
+    saveMatch();
   }
 
-  setState(() {
-    wickets++;
+  Future<void> selectNextBatsman() async {
+    List<String> availablePlayers = widget.matchData["battingPlayers"] != null
+        ? List<String>.from(widget.matchData["battingPlayers"])
+        : [];
 
-    bowlerWickets++;
+    availablePlayers.remove(strikerName);
+    availablePlayers.remove(nonStrikerName);
 
-    strikerBalls++;
+    availablePlayers.removeWhere((player) => outPlayers.contains(player));
 
-    addBallHistory("W");
-
-    completeBall();
-
-    if (wickets >= 10) {
-      showAllOutDialog();
+    if (availablePlayers.isEmpty) {
       return;
     }
 
-    if (lastManBatting && wickets == 9) {
-      return;
+    String? selected;
+
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text("Select Next Batsman"),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: availablePlayers.length,
+              itemBuilder: (context, index) {
+                return ListTile(
+                  title: Text(availablePlayers[index]),
+                  onTap: () {
+                    selected = availablePlayers[index];
+                    Navigator.pop(context);
+                  },
+                );
+              },
+            ),
+          ),
+        );
+      },
+    );
+
+    if (selected != null) {
+      setState(() {
+        strikerName = selected!;
+        strikerRuns = 0;
+        strikerBalls = 0;
+      });
     }
+  }
 
-    strikerName = "New Batsman";
-    strikerRuns = 0;
-    strikerBalls = 0;
-  });
+  void showAllOutDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: Colors.black,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: const Text(
+            "All Out",
+            style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold),
+          ),
+          content: Text(
+            "Innings Finished\nScore : $totalRuns/$wickets",
+            style: const TextStyle(color: Colors.white, fontSize: 16),
+          ),
+          actions: [
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+              onPressed: () {
+                Navigator.pop(context);
+              },
+              child: const Text("OK", style: TextStyle(color: Colors.black)),
+            ),
+          ],
+        );
+      },
+    );
+  }
 
-  saveMatch();
-}
-void showAllOutDialog() {
-  showDialog(
-    context: context,
-    barrierDismissible: false,
-    builder: (context) {
-      return AlertDialog(
-        backgroundColor: Colors.black,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
-        title: const Text(
-          "All Out",
-          style: TextStyle(
-            color: Colors.orange,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        content: Text(
-          "Innings Finished\nScore : $totalRuns/$wickets",
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 16,
-          ),
-        ),
-        actions: [
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.orange,
-            ),
-            onPressed: () {
-              Navigator.pop(context);
-            },
-            child: const Text(
-              "OK",
-              style: TextStyle(
-                color: Colors.black,
-              ),
-            ),
-          ),
-        ],
-      );
-    },
-  );
-}
   void addRunOut() async {
     String? selectedPlayer;
 
@@ -309,9 +356,7 @@ void showAllOutDialog() {
           backgroundColor: Colors.black,
           title: const Text(
             "Select Out Batsman",
-            style: TextStyle(
-              color: Colors.white,
-            ),
+            style: TextStyle(color: Colors.white),
           ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -319,9 +364,7 @@ void showAllOutDialog() {
               ListTile(
                 title: Text(
                   strikerName,
-                  style: const TextStyle(
-                    color: Colors.white,
-                  ),
+                  style: const TextStyle(color: Colors.white),
                 ),
                 onTap: () {
                   selectedPlayer = strikerName;
@@ -331,9 +374,7 @@ void showAllOutDialog() {
               ListTile(
                 title: Text(
                   nonStrikerName,
-                  style: const TextStyle(
-                    color: Colors.white,
-                  ),
+                  style: const TextStyle(color: Colors.white),
                 ),
                 onTap: () {
                   selectedPlayer = nonStrikerName;
@@ -358,12 +399,15 @@ void showAllOutDialog() {
       completeBall();
 
       if (selectedPlayer == strikerName) {
+        outPlayers.add(strikerName);
         strikerBalls++;
 
         strikerName = "New Batsman";
         strikerRuns = 0;
         strikerBalls = 0;
       } else {
+        outPlayers.add(nonStrikerName);
+
         nonStrikerName = "New Batsman";
         nonStrikerRuns = 0;
         nonStrikerBalls = 0;
@@ -374,84 +418,102 @@ void showAllOutDialog() {
   }
 
   void undoBall() {
-  if (ballHistory.isEmpty) {
-    return;
+    if (ballHistory.isEmpty) {
+      return;
+    }
+
+    setState(() {
+      Map<String, dynamic> lastBall = ballHistory.removeAt(0);
+
+      String value = lastBall["ball"];
+
+      if (value.startsWith("WD")) {
+        int wideRun = int.parse(value.replaceFirst("WD", ""));
+
+        totalRuns -= wideRun;
+
+        bowlerRuns -= wideRun;
+      } else if (value.startsWith("NB")) {
+        int batRun = int.parse(value.replaceFirst("NB", "")) - 1;
+
+        totalRuns -= (batRun + 1);
+
+        strikerRuns =
+    (strikerRuns - batRun).clamp(0, 9999);
+
+strikerBalls =
+    (strikerBalls - 1).clamp(0, 9999);
+
+bowlerRuns =
+    (bowlerRuns - (batRun + 1)).clamp(0, 9999);
+      } else if (value == "W") {
+        wickets--;
+        if (outPlayers.isNotEmpty) {
+          outPlayers.removeLast();
+        }
+      bowlerWickets =
+    (bowlerWickets - 1).clamp(0, 999);
+
+strikerBalls =
+    (strikerBalls - 1).clamp(0, 9999);
+
+        if (balls == 0) {
+          overs--;
+          balls = 5;
+        } else {
+          balls--;
+        }
+      } else if (value == "RO") {
+        wickets--;
+        if (outPlayers.isNotEmpty) {
+          outPlayers.removeLast();
+        }
+        if (balls == 0) {
+          overs--;
+          balls = 5;
+        } else {
+          balls--;
+        }
+      } else {
+        int run = int.parse(value);
+
+        totalRuns -= run;
+
+       strikerRuns =
+    (strikerRuns - run).clamp(0, 9999);
+
+strikerBalls =
+    (strikerBalls - 1).clamp(0, 9999);
+
+bowlerRuns =
+    (bowlerRuns - run).clamp(0, 9999);
+
+        if (balls == 0) {
+          overs--;
+          balls = 5;
+        } else {
+          balls--;
+        }
+
+        if (run == 1 || run == 3 || run == 5) {
+          rotateStrike();
+        }
+      }
+    });
+
+    saveMatch();
   }
 
-  setState(() {
-    Map<String, dynamic> lastBall = ballHistory.removeAt(0);
-
-    String value = lastBall["ball"];
-
-    if (value == "WD") {
-      totalRuns -= 1;
-      bowlerRuns -= 1;
-    } else if (value.startsWith("NB")) {
-      List parts = value.split("+");
-
-      int batRun = int.parse(parts[1]);
-
-      totalRuns -= (batRun + 1);
-
-      strikerRuns -= batRun;
-      strikerBalls -= 1;
-
-      bowlerRuns -= (batRun + 1);
-    } else if (value == "W") {
-      wickets--;
-
-      bowlerWickets--;
-
-      strikerBalls--;
-
-      if (balls == 0) {
-        overs--;
-        balls = 5;
-      } else {
-        balls--;
-      }
-    } else if (value == "RO") {
-      wickets--;
-
-      if (balls == 0) {
-        overs--;
-        balls = 5;
-      } else {
-        balls--;
-      }
-    } else {
-      int run = int.parse(value);
-
-      totalRuns -= run;
-
-      strikerRuns -= run;
-      strikerBalls--;
-
-      bowlerRuns -= run;
-
-      if (balls == 0) {
-        overs--;
-        balls = 5;
-      } else {
-        balls--;
-      }
-
-      if (run == 1 || run == 3 || run == 5) {
-        rotateStrike();
-      }
-    }
-  });
-
-  saveMatch();
-}
-
-  Widget scoreButton(
-    String text,
-    VoidCallback onTap,
-  ) {
+  Widget scoreButton(String text, VoidCallback onTap) {
     return Expanded(
       child: GestureDetector(
-        onTap: onTap,
+        onTap: () {
+          if (wickets >= totalPlayers - (lastManBatting ? 1 : 0)) {
+            return;
+          }
+
+          onTap();
+        },
         child: Container(
           height: 60,
           margin: const EdgeInsets.all(6),
@@ -474,12 +536,7 @@ void showAllOutDialog() {
     );
   }
 
-  Widget batsmanTile(
-    String name,
-    int runs,
-    int balls,
-    bool striker,
-  ) {
+  Widget batsmanTile(String name, int runs, int balls, bool striker) {
     return Container(
       padding: const EdgeInsets.all(14),
       margin: const EdgeInsets.only(bottom: 12),
@@ -527,10 +584,7 @@ void showAllOutDialog() {
     );
   }
 
-  Widget infoCard(
-    String title,
-    String value,
-  ) {
+  Widget infoCard(String title, String value) {
     return Expanded(
       child: Container(
         height: 90,
@@ -544,10 +598,7 @@ void showAllOutDialog() {
           children: [
             Text(
               title,
-              style: const TextStyle(
-                color: Colors.grey,
-                fontSize: 14,
-              ),
+              style: const TextStyle(color: Colors.grey, fontSize: 14),
             ),
             const SizedBox(height: 8),
             Text(
@@ -600,10 +651,7 @@ void showAllOutDialog() {
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [
-            Color(0xffFF9800),
-            Color(0xffFF6F00),
-          ],
+          colors: [Color(0xffFF9800), Color(0xffFF6F00)],
         ),
         borderRadius: BorderRadius.circular(24),
       ),
@@ -649,18 +697,12 @@ void showAllOutDialog() {
         elevation: 0,
         title: const Text(
           "Cricket Scorer",
-          style: TextStyle(
-            color: Colors.orange,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold),
         ),
         actions: [
           IconButton(
             onPressed: undoBall,
-            icon: const Icon(
-              Icons.undo,
-              color: Colors.orange,
-            ),
+            icon: const Icon(Icons.undo, color: Colors.orange),
           ),
         ],
       ),
@@ -675,25 +717,14 @@ void showAllOutDialog() {
 
               Row(
                 children: [
-                  infoCard(
-                    "CRR",
-                    currentRunRate.toStringAsFixed(2),
-                  ),
-                  infoCard(
-                    "Bowler",
-                    bowlerName,
-                  ),
+                  infoCard("CRR", currentRunRate.toStringAsFixed(2)),
+                  infoCard("Bowler", bowlerName),
                 ],
               ),
 
               const SizedBox(height: 20),
 
-              batsmanTile(
-                strikerName,
-                strikerRuns,
-                strikerBalls,
-                true,
-              ),
+              batsmanTile(strikerName, strikerRuns, strikerBalls, true),
 
               batsmanTile(
                 nonStrikerName,
@@ -716,9 +747,7 @@ void showAllOutDialog() {
                         const Expanded(
                           child: Text(
                             "Bowler",
-                            style: TextStyle(
-                              color: Colors.grey,
-                            ),
+                            style: TextStyle(color: Colors.grey),
                           ),
                         ),
                         Text(
@@ -736,9 +765,7 @@ void showAllOutDialog() {
                         const Expanded(
                           child: Text(
                             "Figures",
-                            style: TextStyle(
-                              color: Colors.grey,
-                            ),
+                            style: TextStyle(color: Colors.grey),
                           ),
                         ),
                         Text(
@@ -767,11 +794,11 @@ void showAllOutDialog() {
                   scoreButton("2", () => addRuns(2)),
                 ],
               ),
-
               Row(
                 children: [
                   scoreButton("3", () => addRuns(3)),
                   scoreButton("4", () => addRuns(4)),
+                  scoreButton("5", () => addRuns(5)),
                   scoreButton("6", () => addRuns(6)),
                 ],
               ),
@@ -779,91 +806,67 @@ void showAllOutDialog() {
               Row(
                 children: [
                   scoreButton("WD", addWide),
-                  scoreButton(
-                    "NB",
-                    () {
-                      showModalBottomSheet(
-                        context: context,
-                        backgroundColor: Colors.black,
-                        builder: (context) {
-                          return Container(
-                            padding: const EdgeInsets.all(20),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Text(
-                                  "No Ball Runs",
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.bold,
-                                  ),
+                  scoreButton("NB", () {
+                    showModalBottomSheet(
+                      context: context,
+                      backgroundColor: Colors.black,
+                      builder: (context) {
+                        return Container(
+                          padding: const EdgeInsets.all(20),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Text(
+                                "No Ball Runs",
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
                                 ),
-                                const SizedBox(height: 20),
-                                Row(
-                                  children: [
-                                    scoreButton(
-                                      "0",
-                                      () {
-                                        Navigator.pop(context);
-                                        addNoBall(0);
-                                      },
-                                    ),
-                                    scoreButton(
-                                      "1",
-                                      () {
-                                        Navigator.pop(context);
-                                        addNoBall(1);
-                                      },
-                                    ),
-                                    scoreButton(
-                                      "2",
-                                      () {
-                                        Navigator.pop(context);
-                                        addNoBall(2);
-                                      },
-                                    ),
-                                  ],
-                                ),
-                                Row(
-                                  children: [
-                                    scoreButton(
-                                      "4",
-                                      () {
-                                        Navigator.pop(context);
-                                        addNoBall(4);
-                                      },
-                                    ),
-                                    scoreButton(
-                                      "6",
-                                      () {
-                                        Navigator.pop(context);
-                                        addNoBall(6);
-                                      },
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                      );
-                    },
-                  ),
+                              ),
+                              const SizedBox(height: 20),
+                              Row(
+                                children: [
+                                  scoreButton("0", () {
+                                    Navigator.pop(context);
+                                    addNoBall(0);
+                                  }),
+                                  scoreButton("1", () {
+                                    Navigator.pop(context);
+                                    addNoBall(1);
+                                  }),
+                                  scoreButton("2", () {
+                                    Navigator.pop(context);
+                                    addNoBall(2);
+                                  }),
+                                ],
+                              ),
+                              Row(
+                                children: [
+                                  scoreButton("4", () {
+                                    Navigator.pop(context);
+                                    addNoBall(4);
+                                  }),
+                                  scoreButton("6", () {
+                                    Navigator.pop(context);
+                                    addNoBall(6);
+                                  }),
+                                ],
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    );
+                  }),
                   scoreButton("W", addWicket),
                 ],
               ),
 
               Row(
                 children: [
-                  scoreButton(
-                    "RO",
-                    addRunOut,
-                  ),
-                  scoreButton(
-                    "UNDO",
-                    undoBall,
-                  ),
+                  scoreButton("RO", addRunOut),
+                  scoreButton("UNDO", undoBall),
                 ],
               ),
 
