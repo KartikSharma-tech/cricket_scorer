@@ -9,7 +9,7 @@ import 'match_history_screen.dart';
 import 'start_match_screen.dart';
 
 class NavigationScreen extends StatefulWidget {
-  NavigationScreen({super.key});
+  const NavigationScreen({super.key});
 
   @override
   State<NavigationScreen> createState() => _NavigationScreenState();

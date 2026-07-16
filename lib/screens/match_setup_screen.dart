@@ -116,7 +116,7 @@ class _MatchSetupScreenState extends State<MatchSetupScreen> {
             const SizedBox(height: 10),
 
             DropdownButtonFormField<PlayerModel>(
-              value: selectedStriker,
+              initialValue: selectedStriker,
 
               decoration: InputDecoration(
                 border: OutlineInputBorder(
@@ -159,7 +159,7 @@ class _MatchSetupScreenState extends State<MatchSetupScreen> {
             const SizedBox(height: 10),
 
             DropdownButtonFormField<PlayerModel>(
-              value: selectedNonStriker,
+              initialValue: selectedNonStriker,
 
               decoration: InputDecoration(
                 border: OutlineInputBorder(
@@ -201,7 +201,7 @@ class _MatchSetupScreenState extends State<MatchSetupScreen> {
             const SizedBox(height: 10),
 
             DropdownButtonFormField<PlayerModel>(
-              value: selectedBowler,
+              initialValue: selectedBowler,
 
               decoration: InputDecoration(
                 border: OutlineInputBorder(
