@@ -29,12 +29,15 @@ class _LiveScoreScreenState extends State<LiveScoreScreen> {
   int bowlerWickets = 0;
   int bowlerBalls = 0;
 
+  int selectedOvers = 0;
+
   String strikerName = "Batsman 1";
   String nonStrikerName = "Batsman 2";
   String bowlerName = "Bowler";
   String previousBowler = "";
 
   List<String> bowlingPlayers = [];
+  Map<String, Map<String, int>> bowlerStats = {};
 
   bool lastManBatting = true;
 
@@ -51,13 +54,20 @@ class _LiveScoreScreenState extends State<LiveScoreScreen> {
     strikerName = widget.matchData["striker"] ?? "Batsman 1";
     nonStrikerName = widget.matchData["nonStriker"] ?? "Batsman 2";
     bowlerName = widget.matchData["bowler"] ?? "Bowler";
-previousBowler = bowlerName;
+    previousBowler = bowlerName;
+
     totalPlayers = widget.matchData["players"] ?? 11;
+    selectedOvers = widget.matchData["overs"] ?? 5;
 
     bowlingPlayers = widget.matchData["bowlingPlayers"] != null
         ? List<String>.from(widget.matchData["bowlingPlayers"])
         : [];
 
+    for (String player in bowlingPlayers) {
+      bowlerStats[player] = {"runs": 0, "balls": 0, "wickets": 0};
+    }
+    print("Selected Overs = $selectedOvers");
+    print(widget.matchData);
     loadMatch();
   }
 
@@ -136,8 +146,7 @@ previousBowler = bowlerName;
       nonStrikerName = decoded["nonStrikerName"] ?? nonStrikerName;
 
       bowlerName = decoded["bowlerName"] ?? bowlerName;
-previousBowler =
-    decoded["previousBowler"] ?? "";
+      previousBowler = decoded["previousBowler"] ?? "";
       ballHistory = List<Map<String, dynamic>>.from(decoded["ballHistory"]);
     });
   }
@@ -156,15 +165,25 @@ previousBowler =
     nonStrikerBalls = tempBalls;
   }
 
-  void completeBall() {
+  Future<void> completeBall() async {
     balls++;
     bowlerBalls++;
+
+    bowlerStats[bowlerName]?["balls"] =
+        (bowlerStats[bowlerName]?["balls"] ?? 0) + 1;
 
     if (balls == 6) {
       overs++;
       balls = 0;
 
       rotateStrike();
+
+      if (overs >= selectedOvers) {
+        // Abhi kuch mat likho
+        return;
+      }
+
+      await selectNextBowler();
     }
   }
 
@@ -172,7 +191,7 @@ previousBowler =
     ballHistory.insert(0, {"ball": value});
   }
 
-  void addRuns(int run) {
+  Future<void> addRuns(int run) async {
     setState(() {
       totalRuns += run;
 
@@ -180,17 +199,19 @@ previousBowler =
       strikerBalls++;
 
       bowlerRuns += run;
+      bowlerStats[bowlerName]?["runs"] =
+          (bowlerStats[bowlerName]?["runs"] ?? 0) + run;
 
       addBallHistory(run.toString());
 
       bool changeStrike = run == 1 || run == 3 || run == 5;
 
-      completeBall();
-
       if (changeStrike) {
         rotateStrike();
       }
     });
+
+    await completeBall();
 
     saveMatch();
   }
@@ -201,7 +222,8 @@ previousBowler =
       totalRuns += 1;
 
       bowlerRuns += 1;
-
+      bowlerStats[bowlerName]?["runs"] =
+          (bowlerStats[bowlerName]?["runs"] ?? 0) + 1;
       // addBallHistory("WD");
       addBallHistory("WD1");
     });
@@ -212,16 +234,20 @@ previousBowler =
   void addNoBall(int batRun) {
     setState(() {
       totalRuns += batRun + 1;
-
       strikerRuns += batRun;
-      // strikerBalls++;
 
+      if (batRun > 0) {
+        strikerBalls++;
+      }
       bowlerRuns += batRun + 1;
+      bowlerStats[bowlerName]?["runs"] =
+          (bowlerStats[bowlerName]?["runs"] ?? 0) + (batRun + 1);
 
       // addBallHistory("NB+$batRun");
       addBallHistory("NB${batRun + 1}");
-      bool changeStrike = batRun == 1 || batRun == 3 || batRun == 5;
-
+      // bool changeStrike = batRun == 1 || batRun == 3 || batRun == 5;
+      // bool changeStrike = ((batRun + 1) % 2) == 1;
+      bool changeStrike = (batRun % 2) == 1;
       if (changeStrike) {
         rotateStrike();
       }
@@ -236,13 +262,14 @@ previousBowler =
     }
 
     setState(() {
+      addBallHistory("W");
+
       wickets++;
       outPlayers.add(strikerName);
       bowlerWickets++;
-
+      bowlerStats[bowlerName]?["wickets"] =
+          (bowlerStats[bowlerName]?["wickets"] ?? 0) + 1;
       strikerBalls++;
-
-      addBallHistory("W");
 
       completeBall();
 
@@ -260,11 +287,12 @@ previousBowler =
       // strikerRuns = 0;
       // strikerBalls = 0;
     });
-    await selectNextBatsman();
+    // await selectNextBatsman();
+    await selectNextBatsman(strikerOut: true);
     saveMatch();
   }
 
-  Future<void> selectNextBatsman() async {
+  Future<void> selectNextBatsman({required bool strikerOut}) async {
     List<String> availablePlayers = widget.matchData["battingPlayers"] != null
         ? List<String>.from(widget.matchData["battingPlayers"])
         : [];
@@ -282,19 +310,29 @@ previousBowler =
 
     await showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (context) {
         return AlertDialog(
-          title: const Text("Select Next Batsman"),
+          backgroundColor: Colors.black,
+          title: const Text(
+            "Select Next Batsman",
+            style: TextStyle(color: Colors.white),
+          ),
           content: SizedBox(
             width: double.maxFinite,
             child: ListView.builder(
               shrinkWrap: true,
               itemCount: availablePlayers.length,
               itemBuilder: (context, index) {
+                final player = availablePlayers[index];
+
                 return ListTile(
-                  title: Text(availablePlayers[index]),
+                  title: Text(
+                    player,
+                    style: const TextStyle(color: Colors.white),
+                  ),
                   onTap: () {
-                    selected = availablePlayers[index];
+                    selected = player;
                     Navigator.pop(context);
                   },
                 );
@@ -305,13 +343,80 @@ previousBowler =
       },
     );
 
-    if (selected != null) {
-      setState(() {
+    if (selected == null) {
+      return;
+    }
+
+    setState(() {
+      if (strikerOut) {
         strikerName = selected!;
         strikerRuns = 0;
         strikerBalls = 0;
-      });
+      } else {
+        nonStrikerName = selected!;
+        nonStrikerRuns = 0;
+        nonStrikerBalls = 0;
+      }
+    });
+  }
+
+  Future<void> selectNextBowler() async {
+    List<String> availableBowlers = List<String>.from(bowlingPlayers);
+
+    // Current bowler ko remove karo
+    availableBowlers.remove(bowlerName);
+
+    if (availableBowlers.isEmpty) {
+      return;
     }
+
+    String? selected;
+
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: Colors.black,
+          title: const Text(
+            "Select Next Bowler",
+            style: TextStyle(color: Colors.white),
+          ),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: availableBowlers.length,
+              itemBuilder: (context, index) {
+                final player = availableBowlers[index];
+
+                return ListTile(
+                  title: Text(
+                    player,
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                  onTap: () {
+                    selected = player;
+                    Navigator.pop(context);
+                  },
+                );
+              },
+            ),
+          ),
+        );
+      },
+    );
+
+    if (selected == null) {
+      return;
+    }
+
+    setState(() {
+      previousBowler = bowlerName;
+      bowlerName = selected!;
+
+      ballHistory.clear();
+    });
   }
 
   void showAllOutDialog() {
@@ -392,28 +497,25 @@ previousBowler =
     }
 
     setState(() {
-      wickets++;
-
       addBallHistory("RO");
+
+      wickets++;
 
       completeBall();
 
+      strikerBalls++;
+
       if (selectedPlayer == strikerName) {
         outPlayers.add(strikerName);
-        strikerBalls++;
-
-        strikerName = "New Batsman";
-        strikerRuns = 0;
-        strikerBalls = 0;
       } else {
         outPlayers.add(nonStrikerName);
-
-        nonStrikerName = "New Batsman";
-        nonStrikerRuns = 0;
-        nonStrikerBalls = 0;
       }
     });
-
+    if (selectedPlayer == strikerName) {
+      await selectNextBatsman(strikerOut: true);
+    } else {
+      await selectNextBatsman(strikerOut: false);
+    }
     saveMatch();
   }
 
@@ -438,24 +540,19 @@ previousBowler =
 
         totalRuns -= (batRun + 1);
 
-        strikerRuns =
-    (strikerRuns - batRun).clamp(0, 9999);
+        strikerRuns = (strikerRuns - batRun).clamp(0, 9999);
 
-strikerBalls =
-    (strikerBalls - 1).clamp(0, 9999);
+        strikerBalls = (strikerBalls - 1).clamp(0, 9999);
 
-bowlerRuns =
-    (bowlerRuns - (batRun + 1)).clamp(0, 9999);
+        bowlerRuns = (bowlerRuns - (batRun + 1)).clamp(0, 9999);
       } else if (value == "W") {
         wickets--;
         if (outPlayers.isNotEmpty) {
           outPlayers.removeLast();
         }
-      bowlerWickets =
-    (bowlerWickets - 1).clamp(0, 999);
+        bowlerWickets = (bowlerWickets - 1).clamp(0, 999);
 
-strikerBalls =
-    (strikerBalls - 1).clamp(0, 9999);
+        strikerBalls = (strikerBalls - 1).clamp(0, 9999);
 
         if (balls == 0) {
           overs--;
@@ -479,14 +576,11 @@ strikerBalls =
 
         totalRuns -= run;
 
-       strikerRuns =
-    (strikerRuns - run).clamp(0, 9999);
+        strikerRuns = (strikerRuns - run).clamp(0, 9999);
 
-strikerBalls =
-    (strikerBalls - 1).clamp(0, 9999);
+        strikerBalls = (strikerBalls - 1).clamp(0, 9999);
 
-bowlerRuns =
-    (bowlerRuns - run).clamp(0, 9999);
+        bowlerRuns = (bowlerRuns - run).clamp(0, 9999);
 
         if (balls == 0) {
           overs--;
@@ -718,7 +812,10 @@ bowlerRuns =
               Row(
                 children: [
                   infoCard("CRR", currentRunRate.toStringAsFixed(2)),
-                  infoCard("Bowler", bowlerName),
+                  infoCard(
+                    "Overs",
+                    "${((bowlerStats[bowlerName]?["balls"] ?? 0) ~/ 6)}.${((bowlerStats[bowlerName]?["balls"] ?? 0) % 6)}",
+                  ),
                 ],
               ),
 
@@ -769,9 +866,28 @@ bowlerRuns =
                           ),
                         ),
                         Text(
-                          "$bowlerWickets/$bowlerRuns",
+                          "${bowlerStats[bowlerName]?["wickets"] ?? 0}/${bowlerStats[bowlerName]?["runs"] ?? 0}",
                           style: const TextStyle(
                             color: Colors.orange,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+
+                    Row(
+                      children: [
+                        const Expanded(
+                          child: Text(
+                            "Overs",
+                            style: TextStyle(color: Colors.grey),
+                          ),
+                        ),
+                        Text(
+                          "${((bowlerStats[bowlerName]?["balls"] ?? 0) ~/ 6)}.${((bowlerStats[bowlerName]?["balls"] ?? 0) % 6)}",
+                          style: const TextStyle(
+                            color: Colors.white,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
