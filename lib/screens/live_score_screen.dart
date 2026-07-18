@@ -1,707 +1,755 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+
+import '../models/ball_model.dart';
+import '../models/player_model.dart';
+import '../services/match_service.dart';
+import '../services/match_storage_service.dart';
+import 'match_result_screen.dart';
 
 class LiveScoreScreen extends StatefulWidget {
-  final Map<String, dynamic> matchData;
-
-  const LiveScoreScreen({super.key, required this.matchData});
+  const LiveScoreScreen({super.key});
 
   @override
   State<LiveScoreScreen> createState() => _LiveScoreScreenState();
 }
 
 class _LiveScoreScreenState extends State<LiveScoreScreen> {
-  int totalRuns = 0;
-  int wickets = 0;
+  // =========================
+  // UNDO STACK (full state snapshots)
+  // =========================
 
-  int overs = 0;
-  int balls = 0;
+  final List<Map<String, dynamic>> _undoStack = [];
 
-  int strikerRuns = 0;
-  int strikerBalls = 0;
+  bool _busy = false;
 
-  int nonStrikerRuns = 0;
-  int nonStrikerBalls = 0;
+  // =========================
+  // ID GENERATOR
+  // =========================
 
-  int bowlerRuns = 0;
-  int bowlerWickets = 0;
-  int bowlerBalls = 0;
+  String _newId() => DateTime.now().microsecondsSinceEpoch.toString();
 
-  int selectedOvers = 0;
+  // =========================
+  // SNAPSHOT (for undo)
+  // =========================
 
-  String strikerName = "Batsman 1";
-  String nonStrikerName = "Batsman 2";
-  String bowlerName = "Bowler";
-  String previousBowler = "";
-
-  List<String> bowlingPlayers = [];
-  Map<String, Map<String, int>> bowlerStats = {};
-
-  bool lastManBatting = true;
-
-  int totalPlayers = 11;
-
-  List<Map<String, dynamic>> ballHistory = [];
-
-  List<String> outPlayers = [];
-  @override
-  @override
-  void initState() {
-    super.initState();
-
-    strikerName = widget.matchData["striker"] ?? "Batsman 1";
-    nonStrikerName = widget.matchData["nonStriker"] ?? "Batsman 2";
-    bowlerName = widget.matchData["bowler"] ?? "Bowler";
-    previousBowler = bowlerName;
-
-    totalPlayers = widget.matchData["players"] ?? 11;
-    selectedOvers = widget.matchData["overs"] ?? 5;
-
-    bowlingPlayers = widget.matchData["bowlingPlayers"] != null
-        ? List<String>.from(widget.matchData["bowlingPlayers"])
-        : [];
-
-    for (String player in bowlingPlayers) {
-      bowlerStats[player] = {"runs": 0, "balls": 0, "wickets": 0};
-    }
-    print("Selected Overs = $selectedOvers");
-    print(widget.matchData);
-    loadMatch();
-  }
-
-  double get currentRunRate {
-    double totalOvers = overs + (balls / 6);
-
-    if (totalOvers == 0) {
-      return 0.0;
-    }
-
-    return totalRuns / totalOvers;
-  }
-
-  String get overText {
-    return "$overs.$balls";
-  }
-
-  Future<void> saveMatch() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-
-    Map<String, dynamic> data = {
-      "totalRuns": totalRuns,
-      "wickets": wickets,
-      "overs": overs,
-      "balls": balls,
-      "strikerRuns": strikerRuns,
-      "strikerBalls": strikerBalls,
-      "nonStrikerRuns": nonStrikerRuns,
-      "nonStrikerBalls": nonStrikerBalls,
-      "bowlerRuns": bowlerRuns,
-      "bowlerWickets": bowlerWickets,
-      "bowlerBalls": bowlerBalls,
-      "strikerName": strikerName,
-      "nonStrikerName": nonStrikerName,
-      "bowlerName": bowlerName,
-      "previousBowler": previousBowler,
-      "ballHistory": ballHistory,
+  Map<String, dynamic> _snapshot() {
+    return {
+      'totalRuns': MatchService.totalRuns,
+      'wickets': MatchService.wickets,
+      'over': MatchService.over,
+      'ball': MatchService.ball,
+      'wides': MatchService.wides,
+      'noBalls': MatchService.noBalls,
+      'byes': MatchService.byes,
+      'legByes': MatchService.legByes,
+      'isMatchEnded': MatchService.isMatchEnded,
+      'strikerId': MatchService.striker?.id,
+      'strikerRuns': MatchService.striker?.runs,
+      'strikerBalls': MatchService.striker?.balls,
+      'nonStrikerId': MatchService.nonStriker?.id,
+      'nonStrikerRuns': MatchService.nonStriker?.runs,
+      'nonStrikerBalls': MatchService.nonStriker?.balls,
+      'bowlerId': MatchService.currentBowler?.id,
+      'bowlerRuns': MatchService.currentBowler?.runsGiven,
+      'bowlerBalls': MatchService.currentBowler?.ballsBowled,
+      'bowlerWickets': MatchService.currentBowler?.wickets,
+      'previousBowlerId': MatchService.previousBowler?.id,
+      'outPlayerIds': MatchService.outPlayers.map((p) => p.id).toList(),
+      'ballHistoryLen': MatchService.ballHistory.length,
+      'thisOverLen': MatchService.thisOverBalls.length,
     };
-
-    prefs.setString("live_match", jsonEncode(data));
   }
 
-  Future<void> loadMatch() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-
-    // // prefs.remove("live_match");
-    // return;
-    //
-    String? data = prefs.getString("live_match");
-
-    if (data == null) {
-      return;
-    }
-
-    Map<String, dynamic> decoded = jsonDecode(data);
-
-    setState(() {
-      totalRuns = decoded["totalRuns"];
-      wickets = decoded["wickets"];
-
-      overs = decoded["overs"];
-      balls = decoded["balls"];
-
-      strikerRuns = decoded["strikerRuns"];
-      strikerBalls = decoded["strikerBalls"];
-
-      nonStrikerRuns = decoded["nonStrikerRuns"];
-      nonStrikerBalls = decoded["nonStrikerBalls"];
-
-      bowlerRuns = decoded["bowlerRuns"];
-      bowlerWickets = decoded["bowlerWickets"];
-      bowlerBalls = decoded["bowlerBalls"];
-
-      strikerName = decoded["strikerName"] ?? strikerName;
-
-      nonStrikerName = decoded["nonStrikerName"] ?? nonStrikerName;
-
-      bowlerName = decoded["bowlerName"] ?? bowlerName;
-      previousBowler = decoded["previousBowler"] ?? "";
-      ballHistory = List<Map<String, dynamic>>.from(decoded["ballHistory"]);
-    });
-  }
-
-  void rotateStrike() {
-    String tempName = strikerName;
-    strikerName = nonStrikerName;
-    nonStrikerName = tempName;
-
-    int tempRuns = strikerRuns;
-    strikerRuns = nonStrikerRuns;
-    nonStrikerRuns = tempRuns;
-
-    int tempBalls = strikerBalls;
-    strikerBalls = nonStrikerBalls;
-    nonStrikerBalls = tempBalls;
-  }
-
-  Future<void> completeBall() async {
-    balls++;
-    bowlerBalls++;
-
-    bowlerStats[bowlerName]?["balls"] =
-        (bowlerStats[bowlerName]?["balls"] ?? 0) + 1;
-
-    if (balls == 6) {
-      overs++;
-      balls = 0;
-
-      rotateStrike();
-
-      if (overs >= selectedOvers) {
-        // Abhi kuch mat likho
-        return;
-      }
-
-      await selectNextBowler();
+  void _pushUndo() {
+    _undoStack.add(_snapshot());
+    if (_undoStack.length > 60) {
+      _undoStack.removeAt(0);
     }
   }
 
-  void addBallHistory(String value) {
-    ballHistory.insert(0, {"ball": value});
+  PlayerModel? _findPlayer(String? id, List<PlayerModel> list) {
+    if (id == null) return null;
+    final matches = list.where((p) => p.id == id);
+    return matches.isEmpty ? null : matches.first;
   }
 
-  Future<void> addRuns(int run) async {
-    setState(() {
-      totalRuns += run;
+  void _restore(Map<String, dynamic> s) {
+    MatchService.totalRuns = s['totalRuns'];
+    MatchService.wickets = s['wickets'];
+    MatchService.over = s['over'];
+    MatchService.ball = s['ball'];
+    MatchService.wides = s['wides'];
+    MatchService.noBalls = s['noBalls'];
+    MatchService.byes = s['byes'];
+    MatchService.legByes = s['legByes'];
+    MatchService.isMatchEnded = s['isMatchEnded'];
 
-      strikerRuns += run;
-      strikerBalls++;
-
-      bowlerRuns += run;
-      bowlerStats[bowlerName]?["runs"] =
-          (bowlerStats[bowlerName]?["runs"] ?? 0) + run;
-
-      addBallHistory(run.toString());
-
-      bool changeStrike = run == 1 || run == 3 || run == 5;
-
-      if (changeStrike) {
-        rotateStrike();
-      }
-    });
-
-    await completeBall();
-
-    saveMatch();
-  }
-  // TODO: Support Wide + Running (WD+1, WD+2, WD+3...) ye fucture meadd krna h
-
-  void addWide() {
-    setState(() {
-      totalRuns += 1;
-
-      bowlerRuns += 1;
-      bowlerStats[bowlerName]?["runs"] =
-          (bowlerStats[bowlerName]?["runs"] ?? 0) + 1;
-      // addBallHistory("WD");
-      addBallHistory("WD1");
-    });
-
-    saveMatch();
-  }
-
-  void addNoBall(int batRun) {
-    setState(() {
-      totalRuns += batRun + 1;
-      strikerRuns += batRun;
-
-      if (batRun > 0) {
-        strikerBalls++;
-      }
-      bowlerRuns += batRun + 1;
-      bowlerStats[bowlerName]?["runs"] =
-          (bowlerStats[bowlerName]?["runs"] ?? 0) + (batRun + 1);
-
-      // addBallHistory("NB+$batRun");
-      addBallHistory("NB${batRun + 1}");
-      // bool changeStrike = batRun == 1 || batRun == 3 || batRun == 5;
-      // bool changeStrike = ((batRun + 1) % 2) == 1;
-      bool changeStrike = (batRun % 2) == 1;
-      if (changeStrike) {
-        rotateStrike();
-      }
-    });
-
-    saveMatch();
-  }
-
-  Future<void> addWicket() async {
-    if (wickets >= totalPlayers - (lastManBatting ? 1 : 0)) {
-      return;
+    final strikerP = _findPlayer(s['strikerId'], MatchService.battingPlayers);
+    if (strikerP != null) {
+      strikerP.runs = s['strikerRuns'];
+      strikerP.balls = s['strikerBalls'];
     }
+    MatchService.striker = strikerP;
 
-    setState(() {
-      addBallHistory("W");
-
-      wickets++;
-      outPlayers.add(strikerName);
-      bowlerWickets++;
-      bowlerStats[bowlerName]?["wickets"] =
-          (bowlerStats[bowlerName]?["wickets"] ?? 0) + 1;
-      strikerBalls++;
-
-      completeBall();
-
-      if (wickets >= totalPlayers - (lastManBatting ? 1 : 0)) {
-        showAllOutDialog();
-        Navigator.pop(context);
-        return;
-      }
-
-      if (lastManBatting && wickets == 9) {
-        return;
-      }
-
-      // strikerName = "New Batsman";
-      // strikerRuns = 0;
-      // strikerBalls = 0;
-    });
-    // await selectNextBatsman();
-    await selectNextBatsman(strikerOut: true);
-    saveMatch();
-  }
-
-  Future<void> selectNextBatsman({required bool strikerOut}) async {
-    List<String> availablePlayers = widget.matchData["battingPlayers"] != null
-        ? List<String>.from(widget.matchData["battingPlayers"])
-        : [];
-
-    availablePlayers.remove(strikerName);
-    availablePlayers.remove(nonStrikerName);
-
-    availablePlayers.removeWhere((player) => outPlayers.contains(player));
-
-    if (availablePlayers.isEmpty) {
-      return;
+    final nonStrikerP = _findPlayer(
+      s['nonStrikerId'],
+      MatchService.battingPlayers,
+    );
+    if (nonStrikerP != null) {
+      nonStrikerP.runs = s['nonStrikerRuns'];
+      nonStrikerP.balls = s['nonStrikerBalls'];
     }
+    MatchService.nonStriker = nonStrikerP;
 
-    String? selected;
+    final bowlerP = _findPlayer(s['bowlerId'], MatchService.bowlingPlayers);
+    if (bowlerP != null) {
+      bowlerP.runsGiven = s['bowlerRuns'];
+      bowlerP.ballsBowled = s['bowlerBalls'];
+      bowlerP.wickets = s['bowlerWickets'];
+    }
+    MatchService.currentBowler = bowlerP;
 
-    await showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) {
-        return AlertDialog(
-          backgroundColor: Colors.black,
-          title: const Text(
-            "Select Next Batsman",
-            style: TextStyle(color: Colors.white),
-          ),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: ListView.builder(
-              shrinkWrap: true,
-              itemCount: availablePlayers.length,
-              itemBuilder: (context, index) {
-                final player = availablePlayers[index];
-
-                return ListTile(
-                  title: Text(
-                    player,
-                    style: const TextStyle(color: Colors.white),
-                  ),
-                  onTap: () {
-                    selected = player;
-                    Navigator.pop(context);
-                  },
-                );
-              },
-            ),
-          ),
-        );
-      },
+    MatchService.previousBowler = _findPlayer(
+      s['previousBowlerId'],
+      MatchService.bowlingPlayers,
     );
 
-    if (selected == null) {
-      return;
+    final List<String> outIds = List<String>.from(s['outPlayerIds']);
+    MatchService.outPlayers = MatchService.battingPlayers
+        .where((p) => outIds.contains(p.id))
+        .toList();
+
+    final int ballHistLen = s['ballHistoryLen'];
+    while (MatchService.ballHistory.length > ballHistLen) {
+      MatchService.ballHistory.removeLast();
     }
 
-    setState(() {
-      if (strikerOut) {
-        strikerName = selected!;
-        strikerRuns = 0;
-        strikerBalls = 0;
-      } else {
-        nonStrikerName = selected!;
-        nonStrikerRuns = 0;
-        nonStrikerBalls = 0;
-      }
-    });
+    final int thisOverLen = s['thisOverLen'];
+    while (MatchService.thisOverBalls.length > thisOverLen) {
+      MatchService.thisOverBalls.removeLast();
+    }
   }
 
-  Future<void> selectNextBowler() async {
-    List<String> availableBowlers = List<String>.from(bowlingPlayers);
-
-    // Current bowler ko remove karo
-    availableBowlers.remove(bowlerName);
-
-    if (availableBowlers.isEmpty) {
+  Future<void> _undo() async {
+    if (_undoStack.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Nothing to undo")));
       return;
     }
 
-    String? selected;
-
-    await showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) {
-        return AlertDialog(
-          backgroundColor: Colors.black,
-          title: const Text(
-            "Select Next Bowler",
-            style: TextStyle(color: Colors.white),
-          ),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: ListView.builder(
-              shrinkWrap: true,
-              itemCount: availableBowlers.length,
-              itemBuilder: (context, index) {
-                final player = availableBowlers[index];
-
-                return ListTile(
-                  title: Text(
-                    player,
-                    style: const TextStyle(color: Colors.white),
-                  ),
-                  onTap: () {
-                    selected = player;
-                    Navigator.pop(context);
-                  },
-                );
-              },
-            ),
-          ),
-        );
-      },
-    );
-
-    if (selected == null) {
-      return;
-    }
-
-    setState(() {
-      previousBowler = bowlerName;
-      bowlerName = selected!;
-
-      ballHistory.clear();
-    });
+    final snap = _undoStack.removeLast();
+    _restore(snap);
+    setState(() {});
+    await MatchStorageService.saveMatch();
   }
 
-  void showAllOutDialog() {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) {
-        return AlertDialog(
-          backgroundColor: Colors.black,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          title: const Text(
-            "All Out",
-            style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold),
-          ),
-          content: Text(
-            "Innings Finished\nScore : $totalRuns/$wickets",
-            style: const TextStyle(color: Colors.white, fontSize: 16),
-          ),
-          actions: [
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
-              onPressed: () {
-                Navigator.pop(context);
-              },
-              child: const Text("OK", style: TextStyle(color: Colors.black)),
-            ),
-          ],
-        );
-      },
-    );
+  // =========================
+  // STRIKE ROTATION
+  // =========================
+
+  void _rotateStrike() {
+    final temp = MatchService.striker;
+    MatchService.striker = MatchService.nonStriker;
+    MatchService.nonStriker = temp;
   }
 
-  void addRunOut() async {
-    String? selectedPlayer;
+  // =========================
+  // SCORING ACTIONS
+  // =========================
 
-    await showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          backgroundColor: Colors.black,
-          title: const Text(
-            "Select Out Batsman",
-            style: TextStyle(color: Colors.white),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                title: Text(
-                  strikerName,
-                  style: const TextStyle(color: Colors.white),
-                ),
-                onTap: () {
-                  selectedPlayer = strikerName;
-                  Navigator.pop(context);
-                },
-              ),
-              ListTile(
-                title: Text(
-                  nonStrikerName,
-                  style: const TextStyle(color: Colors.white),
-                ),
-                onTap: () {
-                  selectedPlayer = nonStrikerName;
-                  Navigator.pop(context);
-                },
-              ),
-            ],
-          ),
-        );
-      },
+  Future<void> _addRun(int runs) async {
+    if (_guardBlocked()) return;
+
+    _pushUndo();
+
+    final striker = MatchService.striker!;
+    striker.runs += runs;
+    striker.balls += 1;
+
+    MatchService.totalRuns += runs;
+    MatchService.currentBowler!.runsGiven += runs;
+
+    final ball = BallModel(id: _newId(), runs: runs);
+    MatchService.ballHistory.add(ball);
+    MatchService.thisOverBalls.add(ball);
+
+    final overCompleted = MatchService.recordLegalBall();
+
+    if (runs % 2 == 1) _rotateStrike();
+
+    await _afterBall(overCompleted);
+  }
+
+  Future<void> _addWide(int extra) async {
+    if (_guardBlocked()) return;
+
+    _pushUndo();
+
+    MatchService.totalRuns += 1 + extra;
+    MatchService.wides += 1 + extra;
+    MatchService.currentBowler!.runsGiven += 1 + extra;
+
+    final ball = BallModel(
+      id: _newId(),
+      runs: 0,
+      isWide: true,
+      extraRuns: extra,
     );
+    MatchService.ballHistory.add(ball);
+    MatchService.thisOverBalls.add(ball);
 
-    if (selectedPlayer == null) {
-      return;
-    }
+    if (extra % 2 == 1) _rotateStrike();
 
-    setState(() {
-      addBallHistory("RO");
+    await _afterBall(false);
+  }
 
-      wickets++;
+  Future<void> _addNoBall(int batRuns) async {
+    if (_guardBlocked()) return;
 
-      completeBall();
+    _pushUndo();
 
-      strikerBalls++;
+    final striker = MatchService.striker!;
+    striker.runs += batRuns;
+    if (batRuns > 0) striker.balls += 1;
 
-      if (selectedPlayer == strikerName) {
-        outPlayers.add(strikerName);
-      } else {
-        outPlayers.add(nonStrikerName);
-      }
-    });
-    if (selectedPlayer == strikerName) {
-      await selectNextBatsman(strikerOut: true);
+    MatchService.totalRuns += batRuns + 1;
+    MatchService.noBalls += 1;
+    MatchService.currentBowler!.runsGiven += batRuns + 1;
+
+    final ball = BallModel(id: _newId(), runs: batRuns, isNoBall: true);
+    MatchService.ballHistory.add(ball);
+    MatchService.thisOverBalls.add(ball);
+
+    if (batRuns % 2 == 1) _rotateStrike();
+
+    await _afterBall(false);
+  }
+
+  Future<void> _addExtraRun(int runs, {required bool isLegBye}) async {
+    if (_guardBlocked()) return;
+
+    _pushUndo();
+
+    MatchService.striker!.balls += 1;
+    MatchService.totalRuns += runs;
+
+    if (isLegBye) {
+      MatchService.legByes += runs;
     } else {
-      await selectNextBatsman(strikerOut: false);
+      MatchService.byes += runs;
     }
-    saveMatch();
+
+    final ball = BallModel(
+      id: _newId(),
+      runs: runs,
+      isBye: !isLegBye,
+      isLegBye: isLegBye,
+    );
+    MatchService.ballHistory.add(ball);
+    MatchService.thisOverBalls.add(ball);
+
+    final overCompleted = MatchService.recordLegalBall();
+
+    if (runs % 2 == 1) _rotateStrike();
+
+    await _afterBall(overCompleted);
   }
 
-  void undoBall() {
-    if (ballHistory.isEmpty) {
+  Future<void> _addWicket(String type) async {
+    if (_guardBlocked()) return;
+
+    _pushUndo();
+
+    final out = MatchService.striker!;
+    out.balls += 1;
+
+    MatchService.wickets += 1;
+    MatchService.currentBowler!.wickets += 1;
+    MatchService.outPlayers.add(out);
+
+    final ball = BallModel(
+      id: _newId(),
+      runs: 0,
+      isWicket: true,
+      wicketType: type,
+      outPlayerId: out.id,
+    );
+    MatchService.ballHistory.add(ball);
+    MatchService.thisOverBalls.add(ball);
+
+    final overCompleted = MatchService.recordLegalBall();
+
+    MatchService.striker = null;
+
+    await _afterBall(overCompleted, wicketFell: true);
+  }
+
+  Future<void> _addRunOut({
+    required bool strikerIsOut,
+    required int runsCompleted,
+  }) async {
+    if (_guardBlocked()) return;
+
+    _pushUndo();
+
+    final striker = MatchService.striker!;
+    striker.balls += 1;
+    striker.runs += runsCompleted;
+
+    MatchService.totalRuns += runsCompleted;
+    MatchService.currentBowler!.runsGiven += runsCompleted;
+    MatchService.wickets += 1;
+
+    final outPlayer = strikerIsOut
+        ? MatchService.striker!
+        : MatchService.nonStriker!;
+    MatchService.outPlayers.add(outPlayer);
+
+    final ball = BallModel(
+      id: _newId(),
+      runs: runsCompleted,
+      isWicket: true,
+      wicketType: 'Run Out',
+      outPlayerId: outPlayer.id,
+    );
+    MatchService.ballHistory.add(ball);
+    MatchService.thisOverBalls.add(ball);
+
+    final overCompleted = MatchService.recordLegalBall();
+
+    if (strikerIsOut) {
+      MatchService.striker = null;
+    } else {
+      MatchService.nonStriker = null;
+    }
+
+    await _afterBall(overCompleted, wicketFell: true);
+  }
+
+  bool _guardBlocked() {
+    if (MatchService.isMatchEnded) return true;
+    if (MatchService.striker == null) return true;
+    if (MatchService.nonStriker == null && !MatchService.isLastManStanding) {
+      return true;
+    }
+    if (MatchService.currentBowler == null) return true;
+    return false;
+  }
+
+  // =========================
+  // AFTER-BALL FLOW
+  // =========================
+
+  Future<void> _afterBall(bool overCompleted, {bool wicketFell = false}) async {
+    if (!mounted) return;
+    setState(() {});
+    await MatchStorageService.saveMatch();
+
+    // INNINGS OVER (all out or overs finished)
+    if (MatchService.inningsCompleted) {
+      if (!MatchService.isSecondInnings) {
+        await _startSecondInningsFlow();
+      } else {
+        MatchService.checkWinner();
+        await MatchStorageService.saveMatch();
+        if (MatchService.isMatchEnded && mounted) {
+          _goToResult();
+        }
+      }
       return;
     }
 
-    setState(() {
-      Map<String, dynamic> lastBall = ballHistory.removeAt(0);
-
-      String value = lastBall["ball"];
-
-      if (value.startsWith("WD")) {
-        int wideRun = int.parse(value.replaceFirst("WD", ""));
-
-        totalRuns -= wideRun;
-
-        bowlerRuns -= wideRun;
-      } else if (value.startsWith("NB")) {
-        int batRun = int.parse(value.replaceFirst("NB", "")) - 1;
-
-        totalRuns -= (batRun + 1);
-
-        strikerRuns = (strikerRuns - batRun).clamp(0, 9999);
-
-        strikerBalls = (strikerBalls - 1).clamp(0, 9999);
-
-        bowlerRuns = (bowlerRuns - (batRun + 1)).clamp(0, 9999);
-      } else if (value == "W") {
-        wickets--;
-        if (outPlayers.isNotEmpty) {
-          outPlayers.removeLast();
-        }
-        bowlerWickets = (bowlerWickets - 1).clamp(0, 999);
-
-        strikerBalls = (strikerBalls - 1).clamp(0, 9999);
-
-        if (balls == 0) {
-          overs--;
-          balls = 5;
-        } else {
-          balls--;
-        }
-      } else if (value == "RO") {
-        wickets--;
-        if (outPlayers.isNotEmpty) {
-          outPlayers.removeLast();
-        }
-        if (balls == 0) {
-          overs--;
-          balls = 5;
-        } else {
-          balls--;
-        }
-      } else {
-        int run = int.parse(value);
-
-        totalRuns -= run;
-
-        strikerRuns = (strikerRuns - run).clamp(0, 9999);
-
-        strikerBalls = (strikerBalls - 1).clamp(0, 9999);
-
-        bowlerRuns = (bowlerRuns - run).clamp(0, 9999);
-
-        if (balls == 0) {
-          overs--;
-          balls = 5;
-        } else {
-          balls--;
-        }
-
-        if (run == 1 || run == 3 || run == 5) {
-          rotateStrike();
-        }
+    // TARGET CHASED DOWN (can happen mid-over)
+    if (MatchService.isSecondInnings && MatchService.targetAchieved) {
+      MatchService.checkWinner();
+      await MatchStorageService.saveMatch();
+      if (MatchService.isMatchEnded && mounted) {
+        _goToResult();
+        return;
       }
-    });
+    }
 
-    saveMatch();
+    // A WICKET FELL BUT THE INNINGS CONTINUES
+    if (wicketFell) {
+      if (MatchService.isLastManStanding) {
+        // Solo batsman: move whoever survived onto strike.
+        if (MatchService.striker == null && MatchService.nonStriker != null) {
+          MatchService.striker = MatchService.nonStriker;
+          MatchService.nonStriker = null;
+        }
+        setState(() {});
+      } else if (MatchService.striker == null ||
+          MatchService.nonStriker == null) {
+        await _pickNextBatsman();
+      }
+    }
+
+    // OVER JUST COMPLETED - NEW BOWLER REQUIRED
+    if (overCompleted &&
+        !MatchService.inningsCompleted &&
+        MatchService.currentBowler == null) {
+      await _pickNextBowler();
+    }
+
+    if (mounted) setState(() {});
   }
 
-  Widget scoreButton(String text, VoidCallback onTap) {
-    return Expanded(
-      child: GestureDetector(
-        onTap: () {
-          if (wickets >= totalPlayers - (lastManBatting ? 1 : 0)) {
-            return;
-          }
+  Future<void> _startSecondInningsFlow() async {
+    if (!mounted) return;
 
-          onTap();
-        },
-        child: Container(
-          height: 60,
-          margin: const EdgeInsets.all(6),
-          decoration: BoxDecoration(
-            color: Colors.orange,
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Center(
-            child: Text(
-              text,
-              style: const TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                color: Colors.black,
-              ),
-            ),
-          ),
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Innings Break"),
+        content: Text(
+          "${MatchService.teamAName} scored "
+          "${MatchService.totalRuns}/${MatchService.wickets}.\n\n"
+          "${MatchService.teamBName} need "
+          "${MatchService.totalRuns + 1} runs to win.",
         ),
-      ),
-    );
-  }
-
-  Widget batsmanTile(String name, int runs, int balls, bool striker) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: const Color(0xff1A1A1A),
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Row(
-              children: [
-                if (striker)
-                  const Text(
-                    "* ",
-                    style: TextStyle(
-                      color: Colors.orange,
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                Expanded(
-                  child: Text(
-                    name,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Text(
-            "$runs ($balls)",
-            style: const TextStyle(
-              color: Colors.orange,
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text("Start 2nd Innings"),
           ),
         ],
       ),
     );
+
+    setState(() {
+      MatchService.startSecondInnings();
+    });
+
+    _undoStack.clear();
+
+    await MatchStorageService.saveMatch();
+
+    await _pickNextBatsman(); // fills striker
+    if (!mounted) return;
+    await _pickNextBatsman(); // fills non-striker
+    if (!mounted) return;
+    await _pickNextBowler();
+
+    if (mounted) setState(() {});
+    await MatchStorageService.saveMatch();
   }
 
-  Widget infoCard(String title, String value) {
-    return Expanded(
-      child: Container(
-        height: 90,
-        margin: const EdgeInsets.symmetric(horizontal: 4),
-        decoration: BoxDecoration(
-          color: const Color(0xff1A1A1A),
-          borderRadius: BorderRadius.circular(18),
+  void _goToResult() {
+    if (!mounted) return;
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (context) => const MatchResultScreen()),
+    );
+  }
+
+  // =========================
+  // PLAYER / BOWLER PICKERS
+  // =========================
+
+  Future<void> _pickNextBatsman() async {
+    if (!mounted) return;
+
+    final available = MatchService.battingPlayers.where((p) {
+      final isOut = MatchService.outPlayers.any((o) => o.id == p.id);
+      final isCurrentlyIn =
+          p.id == MatchService.striker?.id ||
+          p.id == MatchService.nonStriker?.id;
+      return !isOut && !isCurrentlyIn;
+    }).toList();
+
+    if (available.isEmpty) return;
+
+    final selected = await showDialog<PlayerModel>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => SimpleDialog(
+        title: const Text("Select Next Batsman"),
+        children: available.map((p) {
+          return SimpleDialogOption(
+            onPressed: () => Navigator.pop(ctx, p),
+            child: Text(p.name),
+          );
+        }).toList(),
+      ),
+    );
+
+    if (selected != null) {
+      setState(() {
+        if (MatchService.striker == null) {
+          MatchService.striker = selected;
+        } else {
+          MatchService.nonStriker = selected;
+        }
+      });
+      await MatchStorageService.saveMatch();
+    }
+  }
+
+  Future<void> _pickNextBowler() async {
+    if (!mounted) return;
+
+    final available = MatchService.bowlingPlayers.where((p) {
+      return p.id != MatchService.previousBowler?.id;
+    }).toList();
+
+    if (available.isEmpty) return;
+
+    final selected = await showDialog<PlayerModel>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => SimpleDialog(
+        title: const Text("Select Next Bowler"),
+        children: available.map((p) {
+          return SimpleDialogOption(
+            onPressed: () => Navigator.pop(ctx, p),
+            child: Text(p.name),
+          );
+        }).toList(),
+      ),
+    );
+
+    if (selected != null) {
+      setState(() => MatchService.currentBowler = selected);
+      await MatchStorageService.saveMatch();
+    }
+  }
+
+  // =========================
+  // WICKET / EXTRAS DIALOGS
+  // =========================
+
+  Future<void> _showWicketDialog() async {
+    if (_guardBlocked()) return;
+
+    final type = await showDialog<String>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: const Text("How Out?"),
+        children: [
+          'Bowled',
+          'Caught',
+          'LBW',
+          'Stumped',
+          'Hit Wicket',
+          'Run Out',
+        ].map((t) {
+          return SimpleDialogOption(
+            onPressed: () => Navigator.pop(ctx, t),
+            child: Text(t),
+          );
+        }).toList(),
+      ),
+    );
+
+    if (type == null) return;
+
+    if (type == 'Run Out') {
+      await _showRunOutDialog();
+    } else {
+      await _addWicket(type);
+    }
+  }
+
+  Future<void> _showRunOutDialog() async {
+    if (MatchService.isLastManStanding) {
+      // Only one batsman on the field - they're the only one who can be out.
+      await _addRunOut(strikerIsOut: true, runsCompleted: 0);
+      return;
+    }
+
+    final strikerOut = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: const Text("Who's Out?"),
+        children: [
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(MatchService.striker?.name ?? "Striker"),
+          ),
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(MatchService.nonStriker?.name ?? "Non-Striker"),
+          ),
+        ],
+      ),
+    );
+
+    if (strikerOut == null) return;
+
+    final runs = await showDialog<int>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: const Text("Runs Completed Before Run Out"),
+        children: [0, 1, 2, 3].map((r) {
+          return SimpleDialogOption(
+            onPressed: () => Navigator.pop(ctx, r),
+            child: Text("$r"),
+          );
+        }).toList(),
+      ),
+    );
+
+    if (runs == null) return;
+
+    await _addRunOut(strikerIsOut: strikerOut, runsCompleted: runs);
+  }
+
+  Future<void> _showWideDialog() async {
+    if (_guardBlocked()) return;
+
+    final extra = await showDialog<int>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: const Text("Wide"),
+        children: [0, 1, 2, 3, 4].map((r) {
+          return SimpleDialogOption(
+            onPressed: () => Navigator.pop(ctx, r),
+            child: Text(r == 0 ? "Wide only" : "Wide + $r run(s)"),
+          );
+        }).toList(),
+      ),
+    );
+
+    if (extra != null) await _addWide(extra);
+  }
+
+  Future<void> _showNoBallDialog() async {
+    if (_guardBlocked()) return;
+
+    final runs = await showDialog<int>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: const Text("No Ball - Runs off Bat"),
+        children: [0, 1, 2, 3, 4, 6].map((r) {
+          return SimpleDialogOption(
+            onPressed: () => Navigator.pop(ctx, r),
+            child: Text("$r"),
+          );
+        }).toList(),
+      ),
+    );
+
+    if (runs != null) await _addNoBall(runs);
+  }
+
+  Future<void> _showByeDialog(bool isLegBye) async {
+    if (_guardBlocked()) return;
+
+    final runs = await showDialog<int>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: Text(isLegBye ? "Leg Byes" : "Byes"),
+        children: [1, 2, 3, 4].map((r) {
+          return SimpleDialogOption(
+            onPressed: () => Navigator.pop(ctx, r),
+            child: Text("$r"),
+          );
+        }).toList(),
+      ),
+    );
+
+    if (runs != null) await _addExtraRun(runs, isLegBye: isLegBye);
+  }
+
+  // =========================
+  // UI HELPERS
+  // =========================
+
+  String get _oversText => "${MatchService.over}.${MatchService.ball}";
+
+  String _ballLabel(BallModel b) {
+    if (b.isWicket) return "W";
+    if (b.isWide) return b.extraRuns > 0 ? "Wd+${b.extraRuns}" : "Wd";
+    if (b.isNoBall) return "Nb${b.runs > 0 ? '+${b.runs}' : ''}";
+    if (b.isBye) return "${b.runs}B";
+    if (b.isLegBye) return "${b.runs}Lb";
+    return "${b.runs}";
+  }
+
+  Color _ballColor(BallModel b) {
+    if (b.isWicket) return Colors.red;
+    if (b.isWide || b.isNoBall) return Colors.orange;
+    if (b.isBye || b.isLegBye) return Colors.blueGrey;
+    if (b.runs == 4) return Colors.blue;
+    if (b.runs == 6) return Colors.purple;
+    return Colors.grey.shade700;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final battingTeamName = MatchService.isSecondInnings
+        ? MatchService.teamBName
+        : MatchService.teamAName;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          "${MatchService.teamAName} vs ${MatchService.teamBName}",
         ),
+        centerTitle: true,
+        actions: [
+          IconButton(
+            onPressed: _busy ? null : _undo,
+            icon: const Icon(Icons.undo),
+            tooltip: "Undo Last Ball",
+          ),
+        ],
+      ),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _scoreCard(battingTeamName),
+              const SizedBox(height: 14),
+              if (MatchService.isSecondInnings) _targetCard(),
+              if (MatchService.isSecondInnings) const SizedBox(height: 14),
+              _batsmenCard(),
+              const SizedBox(height: 14),
+              _bowlerCard(),
+              const SizedBox(height: 14),
+              _thisOverRow(),
+              const SizedBox(height: 20),
+              _runButtons(),
+              const SizedBox(height: 14),
+              _extrasButtons(),
+              const SizedBox(height: 14),
+              _wicketButton(),
+              const SizedBox(height: 20),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _scoreCard(String battingTeamName) {
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(18),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              title,
-              style: const TextStyle(color: Colors.grey, fontSize: 14),
+              battingTeamName,
+              style: const TextStyle(fontSize: 16, color: Colors.grey),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             Text(
-              value,
+              "${MatchService.totalRuns} / ${MatchService.wickets}",
               style: const TextStyle(
-                color: Colors.orange,
-                fontSize: 24,
+                fontSize: 34,
                 fontWeight: FontWeight.bold,
               ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              "Overs: $_oversText / ${MatchService.totalOvers}   "
+              "CRR: ${MatchService.getCurrentRunRate().toStringAsFixed(2)}",
+              style: const TextStyle(fontSize: 15, color: Colors.grey),
             ),
           ],
         ),
@@ -709,29 +757,128 @@ class _LiveScoreScreenState extends State<LiveScoreScreen> {
     );
   }
 
-  Widget recentBalls() {
-    return SizedBox(
-      height: 45,
-      child: ListView.builder(
-        reverse: true,
-        scrollDirection: Axis.horizontal,
-        itemCount: ballHistory.length,
-        itemBuilder: (context, index) {
-          return Container(
-            width: 45,
-            margin: const EdgeInsets.only(right: 8),
-            decoration: BoxDecoration(
-              color: Colors.orange,
-              shape: BoxShape.circle,
-            ),
-            child: Center(
-              child: Text(
-                ballHistory[index]["ball"],
-                style: const TextStyle(
-                  color: Colors.black,
-                  fontWeight: FontWeight.bold,
-                ),
+  Widget _targetCard() {
+    return Card(
+      color: Colors.deepOrange.withOpacity(0.15),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              "Target: ${MatchService.target}",
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
               ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              "Need ${MatchService.getRemainingRuns()} runs "
+              "off ${MatchService.getRemainingBalls()} balls   "
+              "RRR: ${MatchService.getRequiredRunRate().toStringAsFixed(2)}",
+              style: const TextStyle(fontSize: 14),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _batsmenCard() {
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            _batsmanRow(MatchService.striker, onStrike: true),
+            const SizedBox(height: 10),
+            _batsmanRow(MatchService.nonStriker, onStrike: false),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _batsmanRow(PlayerModel? player, {required bool onStrike}) {
+    return Row(
+      children: [
+        if (onStrike)
+          const Icon(Icons.sports_cricket, size: 18, color: Colors.green)
+        else
+          const SizedBox(width: 18),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            player?.name ?? "-",
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: onStrike ? FontWeight.bold : FontWeight.normal,
+            ),
+          ),
+        ),
+        Text(
+          player == null
+              ? ""
+              : "${player.runs} (${player.balls})",
+          style: const TextStyle(fontSize: 15),
+        ),
+      ],
+    );
+  }
+
+  Widget _bowlerCard() {
+    final bowler = MatchService.currentBowler;
+
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            const Icon(Icons.sports_baseball, size: 18, color: Colors.orange),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                bowler?.name ?? "-",
+                style: const TextStyle(fontSize: 16),
+              ),
+            ),
+            Text(
+              bowler == null
+                  ? ""
+                  : "${bowler.wickets}-${bowler.runsGiven} "
+                        "(${(bowler.ballsBowled / 6).floor()}."
+                        "${bowler.ballsBowled % 6})",
+              style: const TextStyle(fontSize: 15),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _thisOverRow() {
+    if (MatchService.thisOverBalls.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return SizedBox(
+      height: 40,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: MatchService.thisOverBalls.length,
+        separatorBuilder: (context, index) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final b = MatchService.thisOverBalls[index];
+          return CircleAvatar(
+            radius: 18,
+            backgroundColor: _ballColor(b),
+            child: Text(
+              _ballLabel(b),
+              style: const TextStyle(fontSize: 12, color: Colors.white),
             ),
           );
         },
@@ -739,255 +886,78 @@ class _LiveScoreScreenState extends State<LiveScoreScreen> {
     );
   }
 
-  Widget topScoreCard() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xffFF9800), Color(0xffFF6F00)],
-        ),
-        borderRadius: BorderRadius.circular(24),
-      ),
-      child: Column(
-        children: [
-          const Text(
-            "LIVE SCORE",
-            style: TextStyle(
-              color: Colors.black,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1.2,
+  Widget _runButtons() {
+    return GridView.count(
+      crossAxisCount: 4,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      mainAxisSpacing: 10,
+      crossAxisSpacing: 10,
+      childAspectRatio: 1.6,
+      children: [0, 1, 2, 3, 4, 5, 6].map((r) {
+        return ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: r == 4
+                ? Colors.blue
+                : (r == 6 ? Colors.purple : null),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
             ),
           ),
-          const SizedBox(height: 12),
-          Text(
-            "$totalRuns/$wickets",
-            style: const TextStyle(
-              color: Colors.black,
-              fontSize: 52,
-              fontWeight: FontWeight.bold,
-            ),
+          onPressed: () => _addRun(r),
+          child: Text(
+            "$r",
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
-          const SizedBox(height: 10),
-          Text(
-            "Overs $overText",
-            style: const TextStyle(
-              color: Colors.black,
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
+        );
+      }).toList(),
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xff0F0F0F),
-      appBar: AppBar(
-        backgroundColor: Colors.black,
-        elevation: 0,
-        title: const Text(
-          "Cricket Scorer",
-          style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold),
+  Widget _extrasButtons() {
+    return Row(
+      children: [
+        Expanded(child: _extraButton("WD", _showWideDialog)),
+        const SizedBox(width: 8),
+        Expanded(child: _extraButton("NB", _showNoBallDialog)),
+        const SizedBox(width: 8),
+        Expanded(child: _extraButton("BYE", () => _showByeDialog(false))),
+        const SizedBox(width: 8),
+        Expanded(child: _extraButton("LB", () => _showByeDialog(true))),
+      ],
+    );
+  }
+
+  Widget _extraButton(String label, VoidCallback onTap) {
+    return ElevatedButton(
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.orange.shade700,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
         ),
-        actions: [
-          IconButton(
-            onPressed: undoBall,
-            icon: const Icon(Icons.undo, color: Colors.orange),
-          ),
-        ],
       ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            children: [
-              topScoreCard(),
+      onPressed: onTap,
+      child: Text(label),
+    );
+  }
 
-              const SizedBox(height: 18),
-
-              Row(
-                children: [
-                  infoCard("CRR", currentRunRate.toStringAsFixed(2)),
-                  infoCard(
-                    "Overs",
-                    "${((bowlerStats[bowlerName]?["balls"] ?? 0) ~/ 6)}.${((bowlerStats[bowlerName]?["balls"] ?? 0) % 6)}",
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 20),
-
-              batsmanTile(strikerName, strikerRuns, strikerBalls, true),
-
-              batsmanTile(
-                nonStrikerName,
-                nonStrikerRuns,
-                nonStrikerBalls,
-                false,
-              ),
-
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  color: const Color(0xff1A1A1A),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Column(
-                  children: [
-                    Row(
-                      children: [
-                        const Expanded(
-                          child: Text(
-                            "Bowler",
-                            style: TextStyle(color: Colors.grey),
-                          ),
-                        ),
-                        Text(
-                          bowlerName,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        const Expanded(
-                          child: Text(
-                            "Figures",
-                            style: TextStyle(color: Colors.grey),
-                          ),
-                        ),
-                        Text(
-                          "${bowlerStats[bowlerName]?["wickets"] ?? 0}/${bowlerStats[bowlerName]?["runs"] ?? 0}",
-                          style: const TextStyle(
-                            color: Colors.orange,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-
-                    Row(
-                      children: [
-                        const Expanded(
-                          child: Text(
-                            "Overs",
-                            style: TextStyle(color: Colors.grey),
-                          ),
-                        ),
-                        Text(
-                          "${((bowlerStats[bowlerName]?["balls"] ?? 0) ~/ 6)}.${((bowlerStats[bowlerName]?["balls"] ?? 0) % 6)}",
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 18),
-
-              recentBalls(),
-
-              const SizedBox(height: 18),
-
-              Row(
-                children: [
-                  scoreButton("0", () => addRuns(0)),
-                  scoreButton("1", () => addRuns(1)),
-                  scoreButton("2", () => addRuns(2)),
-                ],
-              ),
-              Row(
-                children: [
-                  scoreButton("3", () => addRuns(3)),
-                  scoreButton("4", () => addRuns(4)),
-                  scoreButton("5", () => addRuns(5)),
-                  scoreButton("6", () => addRuns(6)),
-                ],
-              ),
-
-              Row(
-                children: [
-                  scoreButton("WD", addWide),
-                  scoreButton("NB", () {
-                    showModalBottomSheet(
-                      context: context,
-                      backgroundColor: Colors.black,
-                      builder: (context) {
-                        return Container(
-                          padding: const EdgeInsets.all(20),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Text(
-                                "No Ball Runs",
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 20),
-                              Row(
-                                children: [
-                                  scoreButton("0", () {
-                                    Navigator.pop(context);
-                                    addNoBall(0);
-                                  }),
-                                  scoreButton("1", () {
-                                    Navigator.pop(context);
-                                    addNoBall(1);
-                                  }),
-                                  scoreButton("2", () {
-                                    Navigator.pop(context);
-                                    addNoBall(2);
-                                  }),
-                                ],
-                              ),
-                              Row(
-                                children: [
-                                  scoreButton("4", () {
-                                    Navigator.pop(context);
-                                    addNoBall(4);
-                                  }),
-                                  scoreButton("6", () {
-                                    Navigator.pop(context);
-                                    addNoBall(6);
-                                  }),
-                                ],
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    );
-                  }),
-                  scoreButton("W", addWicket),
-                ],
-              ),
-
-              Row(
-                children: [
-                  scoreButton("RO", addRunOut),
-                  scoreButton("UNDO", undoBall),
-                ],
-              ),
-
-              const SizedBox(height: 30),
-            ],
+  Widget _wicketButton() {
+    return SizedBox(
+      height: 55,
+      child: ElevatedButton(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.red,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+        onPressed: _showWicketDialog,
+        child: const Text(
+          "WICKET",
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
           ),
         ),
       ),

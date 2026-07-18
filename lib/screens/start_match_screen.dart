@@ -7,51 +7,33 @@ import '../services/match_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'match_setup_screen.dart';
 
-class StartMatchScreen
-    extends StatefulWidget {
-
-  const StartMatchScreen({
-    super.key,
-  });
+class StartMatchScreen extends StatefulWidget {
+  const StartMatchScreen({super.key});
 
   @override
-  State<StartMatchScreen>
-  createState() =>
-
-      _StartMatchScreenState();
+  State<StartMatchScreen> createState() => _StartMatchScreenState();
 }
 
-class _StartMatchScreenState
-    extends State<StartMatchScreen> {
-
+class _StartMatchScreenState extends State<StartMatchScreen> {
   // =========================
   // CONTROLLERS
   // =========================
 
-  final TextEditingController
-  teamAController =
-  TextEditingController();
+  final TextEditingController teamAController = TextEditingController();
 
-  final TextEditingController
-  teamBController =
-  TextEditingController();
+  final TextEditingController teamBController = TextEditingController();
 
-  final TextEditingController
-  oversController =
-  TextEditingController();
+  final TextEditingController oversController = TextEditingController();
 
   // =========================
   // PLAYERS
   // =========================
 
-  List<PlayerModel>
-  allPlayers = [];
+  List<PlayerModel> allPlayers = [];
 
-  List<PlayerModel>
-  teamAPlayers = [];
+  List<PlayerModel> teamAPlayers = [];
 
-  List<PlayerModel>
-  teamBPlayers = [];
+  List<PlayerModel> teamBPlayers = [];
 
   // =========================
   // INIT
@@ -68,10 +50,8 @@ class _StartMatchScreenState
   // LOAD PLAYERS
   // =========================
 
-  void loadPlayers(){
-
-    allPlayers =
-        PlayerService.getPlayers();
+  void loadPlayers() {
+    allPlayers = PlayerService.getPlayers();
 
     setState(() {});
   }
@@ -80,78 +60,39 @@ class _StartMatchScreenState
   // PLAYER TILE
   // =========================
 
-  Widget playerTile({
-
-    required PlayerModel player,
-
-    required bool isTeamA,
-
-  }) {
-
-    bool selected =
-
-    isTeamA
-
-        ?
-
-    teamAPlayers.contains(player)
-
-        :
-
-    teamBPlayers.contains(player);
+  Widget playerTile({required PlayerModel player, required bool isTeamA}) {
+    bool selected = isTeamA
+        ? teamAPlayers.contains(player)
+        : teamBPlayers.contains(player);
 
     return CheckboxListTile(
-
       value: selected,
 
       activeColor: Colors.green,
 
-      title: Text(
-        player.name,
-      ),
+      title: Text(player.name),
 
-      onChanged: (value){
-
+      onChanged: (value) {
         setState(() {
+          if (isTeamA) {
+            if (value == true) {
+              if (!teamAPlayers.contains(player)) {
+                teamAPlayers.add(player);
 
-          if(isTeamA){
-
-            if(value == true){
-
-              if(!teamAPlayers
-                  .contains(player)){
-
-                teamAPlayers
-                    .add(player);
-
-                teamBPlayers
-                    .remove(player);
+                teamBPlayers.remove(player);
               }
-
-            }else{
-
-              teamAPlayers
-                  .remove(player);
+            } else {
+              teamAPlayers.remove(player);
             }
+          } else {
+            if (value == true) {
+              if (!teamBPlayers.contains(player)) {
+                teamBPlayers.add(player);
 
-          }else{
-
-            if(value == true){
-
-              if(!teamBPlayers
-                  .contains(player)){
-
-                teamBPlayers
-                    .add(player);
-
-                teamAPlayers
-                    .remove(player);
+                teamAPlayers.remove(player);
               }
-
-            }else{
-
-              teamBPlayers
-                  .remove(player);
+            } else {
+              teamBPlayers.remove(player);
             }
           }
         });
@@ -164,45 +105,21 @@ class _StartMatchScreenState
   // =========================
 
   Future<void> startMatch() async {
+    String teamA = teamAController.text.trim();
 
-    String teamA =
-    teamAController.text
-        .trim();
+    String teamB = teamBController.text.trim();
 
-    String teamB =
-    teamBController.text
-        .trim();
-
-    String overs =
-    oversController.text
-        .trim();
+    String overs = oversController.text.trim();
 
     // VALIDATION
 
-    if(
-
-    teamA.isEmpty ||
-
+    if (teamA.isEmpty ||
         teamB.isEmpty ||
-
         overs.isEmpty ||
-
         teamAPlayers.length < 2 ||
-
-        teamBPlayers.length < 2
-
-    ){
-
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(
-
-        const SnackBar(
-
-          content: Text(
-            "Fill all details properly",
-          ),
-        ),
+        teamBPlayers.length < 2) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Fill all details properly")),
       );
 
       return;
@@ -211,29 +128,23 @@ class _StartMatchScreenState
     // RESET MATCH
 
     MatchService.resetMatch();
-    SharedPreferences prefs =
-    await SharedPreferences.getInstance();
+    SharedPreferences prefs = await SharedPreferences.getInstance();
 
-await prefs.remove("live_match");
+    await prefs.remove("live_match");
 
     // SAVE MATCH INFO
 
-    MatchService.teamAName =
-        teamA;
+    MatchService.teamAName = teamA;
 
-    MatchService.teamBName =
-        teamB;
+    MatchService.teamBName = teamB;
 
-    MatchService.totalOvers =
-        int.parse(overs);
+    MatchService.totalOvers = int.parse(overs);
 
     // SAVE PLAYERS
 
-    MatchService.battingPlayers =
-        teamAPlayers;
+    MatchService.battingPlayers = teamAPlayers;
 
-    MatchService.bowlingPlayers =
-        teamBPlayers;
+    MatchService.bowlingPlayers = teamBPlayers;
 
     // RESET PLAYER STATS
 
@@ -242,20 +153,14 @@ await prefs.remove("live_match");
     // NEXT SCREEN
 
     Navigator.pushReplacement(
-
       context,
 
       MaterialPageRoute(
-
-        builder: (context){
-
+        builder: (context) {
           return MatchSetupScreen(
-
-            battingPlayers:
-            teamAPlayers,
-
-            bowlingPlayers:
-            teamBPlayers,
+            battingPlayers: teamAPlayers,
+            bowlingPlayers: teamBPlayers,
+            overs: int.parse(overs),
           );
         },
       ),
@@ -264,318 +169,186 @@ await prefs.remove("live_match");
 
   @override
   Widget build(BuildContext context) {
-
     return Scaffold(
-
-      appBar: AppBar(
-
-        title: const Text(
-          "Start Match",
-        ),
-
-        centerTitle: true,
-      ),
+      appBar: AppBar(title: const Text("Start Match"), centerTitle: true),
 
       body: allPlayers.isEmpty
-
           ? const Center(
+              child: Text(
+                "No Players Found\nAdd Players First",
 
-        child: Text(
+                textAlign: TextAlign.center,
 
-          "No Players Found\nAdd Players First",
-
-          textAlign:
-          TextAlign.center,
-
-          style: TextStyle(
-            fontSize: 18,
-          ),
-        ),
-      )
-
+                style: TextStyle(fontSize: 18),
+              ),
+            )
           : SingleChildScrollView(
-
-        padding:
-        const EdgeInsets.all(20),
-
-        child: Column(
-
-          crossAxisAlignment:
-          CrossAxisAlignment.start,
-
-          children: [
-
-            // =========================
-            // TEAM A
-            // =========================
-
-            TextField(
-
-              controller:
-              teamAController,
-
-              decoration:
-              InputDecoration(
-
-                hintText:
-                "Team A Name",
-
-                border:
-                OutlineInputBorder(
-
-                  borderRadius:
-                  BorderRadius.circular(
-                    15,
-                  ),
-                ),
-              ),
-            ),
-
-            const SizedBox(
-              height: 20,
-            ),
-
-            // =========================
-            // TEAM B
-            // =========================
-
-            TextField(
-
-              controller:
-              teamBController,
-
-              decoration:
-              InputDecoration(
-
-                hintText:
-                "Team B Name",
-
-                border:
-                OutlineInputBorder(
-
-                  borderRadius:
-                  BorderRadius.circular(
-                    15,
-                  ),
-                ),
-              ),
-            ),
-
-            const SizedBox(
-              height: 20,
-            ),
-
-            // =========================
-            // OVERS
-            // =========================
-
-            TextField(
-
-              controller:
-              oversController,
-
-              keyboardType:
-              TextInputType.number,
-
-              decoration:
-              InputDecoration(
-
-                hintText:
-                "Total Overs",
-
-                border:
-                OutlineInputBorder(
-
-                  borderRadius:
-                  BorderRadius.circular(
-                    15,
-                  ),
-                ),
-              ),
-            ),
-
-            const SizedBox(
-              height: 30,
-            ),
-
-            // =========================
-            // TEAM A PLAYERS
-            // =========================
-
-            const Text(
-
-              "Select Team A Players",
-
-              style: TextStyle(
-
-                fontSize: 20,
-
-                fontWeight:
-                FontWeight.bold,
-              ),
-            ),
-
-            const SizedBox(
-              height: 10,
-            ),
-
-            Container(
-
-              height: 250,
-
-              decoration:
-              BoxDecoration(
-
-                border: Border.all(
-                  color: Colors.grey,
-                ),
-
-                borderRadius:
-                BorderRadius.circular(
-                  15,
-                ),
-              ),
-
-              child: ListView.builder(
-
-                itemCount:
-                allPlayers.length,
-
-                itemBuilder:
-                    (context, index){
-
-                  return playerTile(
-
-                    player:
-                    allPlayers[index],
-
-                    isTeamA: true,
-                  );
-                },
-              ),
-            ),
-
-            const SizedBox(
-              height: 25,
-            ),
-
-            // =========================
-            // TEAM B PLAYERS
-            // =========================
-
-            const Text(
-
-              "Select Team B Players",
-
-              style: TextStyle(
-
-                fontSize: 20,
-
-                fontWeight:
-                FontWeight.bold,
-              ),
-            ),
-
-            const SizedBox(
-              height: 10,
-            ),
-
-            Container(
-
-              height: 250,
-
-              decoration:
-              BoxDecoration(
-
-                border: Border.all(
-                  color: Colors.grey,
-                ),
-
-                borderRadius:
-                BorderRadius.circular(
-                  15,
-                ),
-              ),
-
-              child: ListView.builder(
-
-                itemCount:
-                allPlayers.length,
-
-                itemBuilder:
-                    (context, index){
-
-                  return playerTile(
-
-                    player:
-                    allPlayers[index],
-
-                    isTeamA: false,
-                  );
-                },
-              ),
-            ),
-
-            const SizedBox(
-              height: 30,
-            ),
-
-            // =========================
-            // START BUTTON
-            // =========================
-
-            SizedBox(
-
-              width:
-              double.infinity,
-
-              height: 65,
-
-              child: ElevatedButton(
-
-                style:
-                ElevatedButton.styleFrom(
-
-                  backgroundColor:
-                  Colors.green,
-
-                  shape:
-                  RoundedRectangleBorder(
-
-                    borderRadius:
-                    BorderRadius.circular(
-                      18,
+              padding: const EdgeInsets.all(20),
+
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+
+                children: [
+                  // =========================
+                  // TEAM A
+                  // =========================
+                  TextField(
+                    controller: teamAController,
+
+                    decoration: InputDecoration(
+                      hintText: "Team A Name",
+
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(15),
+                      ),
                     ),
                   ),
-                ),
 
-                onPressed:
-                startMatch,
+                  const SizedBox(height: 20),
 
-                child: const Text(
+                  // =========================
+                  // TEAM B
+                  // =========================
+                  TextField(
+                    controller: teamBController,
 
-                  "Continue Match Setup",
+                    decoration: InputDecoration(
+                      hintText: "Team B Name",
 
-                  style: TextStyle(
-
-                    fontSize: 20,
-
-                    color:
-                    Colors.white,
-
-                    fontWeight:
-                    FontWeight.bold,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(15),
+                      ),
+                    ),
                   ),
-                ),
+
+                  const SizedBox(height: 20),
+
+                  // =========================
+                  // OVERS
+                  // =========================
+                  TextField(
+                    controller: oversController,
+
+                    keyboardType: TextInputType.number,
+
+                    decoration: InputDecoration(
+                      hintText: "Total Overs",
+
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(15),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 30),
+
+                  // =========================
+                  // TEAM A PLAYERS
+                  // =========================
+                  const Text(
+                    "Select Team A Players",
+
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+
+                  const SizedBox(height: 10),
+
+                  Container(
+                    height: 250,
+
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey),
+
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+
+                    child: ListView.builder(
+                      itemCount: allPlayers.length,
+
+                      itemBuilder: (context, index) {
+                        return playerTile(
+                          player: allPlayers[index],
+
+                          isTeamA: true,
+                        );
+                      },
+                    ),
+                  ),
+
+                  const SizedBox(height: 25),
+
+                  // =========================
+                  // TEAM B PLAYERS
+                  // =========================
+                  const Text(
+                    "Select Team B Players",
+
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+
+                  const SizedBox(height: 10),
+
+                  Container(
+                    height: 250,
+
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey),
+
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+
+                    child: ListView.builder(
+                      itemCount: allPlayers.length,
+
+                      itemBuilder: (context, index) {
+                        return playerTile(
+                          player: allPlayers[index],
+
+                          isTeamA: false,
+                        );
+                      },
+                    ),
+                  ),
+
+                  const SizedBox(height: 30),
+
+                  // =========================
+                  // START BUTTON
+                  // =========================
+                  SizedBox(
+                    width: double.infinity,
+
+                    height: 65,
+
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                      ),
+
+                      onPressed: startMatch,
+
+                      child: const Text(
+                        "Continue Match Setup",
+
+                        style: TextStyle(
+                          fontSize: 20,
+
+                          color: Colors.white,
+
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
+                ],
               ),
             ),
-
-            const SizedBox(
-              height: 20,
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

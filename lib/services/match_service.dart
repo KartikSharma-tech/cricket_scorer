@@ -46,6 +46,8 @@ class MatchService {
 
   static int firstInningsScore = 0;
 
+  static int firstInningsWickets = 0;
+
   static int target = 0;
 
   // =========================
@@ -58,6 +60,10 @@ class MatchService {
   // =========================
 
   static List<BallModel> ballHistory = [];
+
+  // BALLS BOWLED IN THE CURRENT OVER (reset every over, used for UI only)
+
+  static List<BallModel> thisOverBalls = [];
 
   // =========================
   // PLAYERS
@@ -74,6 +80,14 @@ class MatchService {
   static PlayerModel? nonStriker;
 
   static PlayerModel? currentBowler;
+
+  // BOWLER WHO BOWLED THE PREVIOUS OVER (cannot bowl consecutive overs)
+
+  static PlayerModel? previousBowler;
+
+  // LAST MAN BATTING RULE (team continues with solo batsman on final wicket)
+
+  static bool lastManBatting = true;
 
   // =========================
   // RESET MATCH
@@ -98,6 +112,8 @@ class MatchService {
 
     firstInningsScore = 0;
 
+    firstInningsWickets = 0;
+
     target = 0;
 
     resultText = "";
@@ -114,7 +130,11 @@ class MatchService {
     nonStriker = null;
     currentBowler = null;
 
+    previousBowler = null;
+
     ballHistory = [];
+
+    thisOverBalls = [];
   }
 
   // =========================
@@ -123,6 +143,9 @@ class MatchService {
 
   static void resetInnings() {
     ballHistory = [];
+
+    thisOverBalls = [];
+
     totalRuns = 0;
 
     wickets = 0;
@@ -147,6 +170,8 @@ class MatchService {
 
     currentBowler = null;
 
+    previousBowler = null;
+
     // RESET PLAYER STATS
 
     List<PlayerModel> allPlayers = [...battingPlayers, ...bowlingPlayers];
@@ -162,6 +187,69 @@ class MatchService {
 
       player.wickets = 0;
     }
+  }
+
+  // =========================
+  // START SECOND INNINGS
+  // =========================
+  // Swaps batting/bowling teams, locks in the target,
+  // and resets all live-innings state for the chase.
+
+  static void startSecondInnings() {
+    firstInningsScore = totalRuns;
+
+    firstInningsWickets = wickets;
+
+    target = totalRuns + 1;
+
+    isSecondInnings = true;
+
+    final List<PlayerModel> temp = battingPlayers;
+
+    battingPlayers = bowlingPlayers;
+
+    bowlingPlayers = temp;
+
+    resetInnings();
+  }
+
+  // =========================
+  // RECORD A LEGAL BALL
+  // =========================
+  // Call this for every ball that counts toward the over
+  // (normal balls, byes, leg byes, wickets — NOT wides/no-balls).
+  // Returns true if the over just completed.
+
+  static bool recordLegalBall() {
+    ball++;
+
+    if (currentBowler != null) {
+      currentBowler!.ballsBowled++;
+    }
+
+    if (ball >= 6) {
+      over++;
+
+      ball = 0;
+
+      previousBowler = currentBowler;
+
+      currentBowler = null;
+
+      thisOverBalls = [];
+
+      return true;
+    }
+
+    return false;
+  }
+
+  // =========================
+  // LAST MAN STANDING
+  // =========================
+
+  static bool get isLastManStanding {
+    return lastManBatting && (battingPlayers.length - wickets) == 1;
   }
 
   static void resetPlayerStats() {

@@ -93,13 +93,7 @@ class _NavigationScreenState extends State<NavigationScreen> {
 
                     MaterialPageRoute(
                       builder: (context) {
-                        return LiveScoreScreen(
-                          matchData: {
-                            "striker": "Batsman 1",
-                            "nonStriker": "Batsman 2",
-                            "bowler": "Bowler",
-                          },
-                        );
+                        return const LiveScoreScreen();
                       },
                     ),
                   ).then((value) {

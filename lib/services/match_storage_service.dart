@@ -49,9 +49,18 @@ class MatchStorageService {
 
     await prefs.setInt("firstInningsScore", MatchService.firstInningsScore);
 
+    await prefs.setInt("firstInningsWickets", MatchService.firstInningsWickets);
+
     await prefs.setInt("target", MatchService.target);
 
     await prefs.setString("resultText", MatchService.resultText);
+
+    await prefs.setBool("lastManBatting", MatchService.lastManBatting);
+
+    await prefs.setString(
+      "previousBowler",
+      MatchService.previousBowler?.id ?? "",
+    );
 
     // CURRENT PLAYERS
 
@@ -175,9 +184,14 @@ class MatchStorageService {
 
     MatchService.firstInningsScore = prefs.getInt("firstInningsScore") ?? 0;
 
+    MatchService.firstInningsWickets =
+        prefs.getInt("firstInningsWickets") ?? 0;
+
     MatchService.target = prefs.getInt("target") ?? 0;
 
     MatchService.resultText = prefs.getString("resultText") ?? "";
+
+    MatchService.lastManBatting = prefs.getBool("lastManBatting") ?? true;
 
     // PLAYERS
 
@@ -283,6 +297,19 @@ class MatchStorageService {
         ? MatchService.bowlingPlayers.first
         : null);
 
+    // PREVIOUS BOWLER (for consecutive-over restriction)
+
+    String previousBowlerId = prefs.getString("previousBowler") ?? "";
+
+    MatchService.previousBowler =
+        MatchService.bowlingPlayers.where((player) {
+          return player.id == previousBowlerId;
+        }).isNotEmpty
+        ? MatchService.bowlingPlayers.firstWhere(
+            (player) => player.id == previousBowlerId,
+          )
+        : null;
+
     // OUT PLAYERS
 
     List<String> outIds = prefs.getStringList("outPlayers") ?? [];
@@ -344,9 +371,15 @@ hasSavedMatch() async {
 
       "firstInningsScore",
 
+      "firstInningsWickets",
+
       "target",
 
       "resultText",
+
+      "lastManBatting",
+
+      "previousBowler",
 
       "striker",
 

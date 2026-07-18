@@ -11,13 +11,15 @@ class MatchSetupScreen extends StatefulWidget {
   final List<PlayerModel> battingPlayers;
 
   final List<PlayerModel> bowlingPlayers;
-
+  
+  final int overs;
   const MatchSetupScreen({
     super.key,
 
     required this.battingPlayers,
 
     required this.bowlingPlayers,
+    required this.overs,
   });
 
   @override
@@ -63,42 +65,14 @@ class _MatchSetupScreenState extends State<MatchSetupScreen> {
     await MatchStorageService.saveMatch();
 
     // OPEN LIVE SCORE
+    // LiveScoreScreen reads everything it needs straight from
+    // MatchService, which we've already populated above.
 
-    //    Navigator.pushReplacement(
-    //   context,
-    //   MaterialPageRoute(
-    //     builder: (context) {
-    //       return LiveScoreScreen(
-    //         final player1Controller = TextEditingController();
-    // final player2Controller = TextEditingController();
-    // final bowlerController = TextEditingController();
-    //       );
-    //     },
-    //   ),
-    // );
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
         builder: (context) {
-          return LiveScoreScreen(
-           matchData: {
-  "striker": selectedStriker!.name,
-  "nonStriker": selectedNonStriker!.name,
-  "bowler": selectedBowler!.name,
-
-  "battingPlayers":
-      widget.battingPlayers
-          .map((e) => e.name)
-          .toList(),
-
-  "bowlingPlayers":
-      widget.bowlingPlayers
-          .map((e) => e.name)
-          .toList(),
-
-  "players": widget.battingPlayers.length,
-}
-          );
+          return const LiveScoreScreen();
         },
       ),
     );
