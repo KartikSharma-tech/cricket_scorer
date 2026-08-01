@@ -5,6 +5,7 @@ import '../models/player_model.dart';
 import '../services/match_service.dart';
 import '../services/match_storage_service.dart';
 import 'match_result_screen.dart';
+import 'scorecard_screen.dart';
 
 class LiveScoreScreen extends StatefulWidget {
   const LiveScoreScreen({super.key});
@@ -170,7 +171,12 @@ class _LiveScoreScreenState extends State<LiveScoreScreen> {
     MatchService.totalRuns += runs;
     MatchService.currentBowler!.runsGiven += runs;
 
-    final ball = BallModel(id: _newId(), runs: runs);
+    final ball = BallModel(
+      id: _newId(),
+      runs: runs,
+      strikerId: striker.id,
+      bowlerId: MatchService.currentBowler!.id,
+    );
     MatchService.ballHistory.add(ball);
     MatchService.thisOverBalls.add(ball);
 
@@ -195,6 +201,7 @@ class _LiveScoreScreenState extends State<LiveScoreScreen> {
       runs: 0,
       isWide: true,
       extraRuns: extra,
+      bowlerId: MatchService.currentBowler!.id,
     );
     MatchService.ballHistory.add(ball);
     MatchService.thisOverBalls.add(ball);
@@ -217,7 +224,13 @@ class _LiveScoreScreenState extends State<LiveScoreScreen> {
     MatchService.noBalls += 1;
     MatchService.currentBowler!.runsGiven += batRuns + 1;
 
-    final ball = BallModel(id: _newId(), runs: batRuns, isNoBall: true);
+    final ball = BallModel(
+      id: _newId(),
+      runs: batRuns,
+      isNoBall: true,
+      strikerId: striker.id,
+      bowlerId: MatchService.currentBowler!.id,
+    );
     MatchService.ballHistory.add(ball);
     MatchService.thisOverBalls.add(ball);
 
@@ -245,6 +258,8 @@ class _LiveScoreScreenState extends State<LiveScoreScreen> {
       runs: runs,
       isBye: !isLegBye,
       isLegBye: isLegBye,
+      strikerId: MatchService.striker!.id,
+      bowlerId: MatchService.currentBowler!.id,
     );
     MatchService.ballHistory.add(ball);
     MatchService.thisOverBalls.add(ball);
@@ -274,13 +289,19 @@ class _LiveScoreScreenState extends State<LiveScoreScreen> {
       isWicket: true,
       wicketType: type,
       outPlayerId: out.id,
+      strikerId: out.id,
+      bowlerId: MatchService.currentBowler!.id,
     );
     MatchService.ballHistory.add(ball);
     MatchService.thisOverBalls.add(ball);
 
+    MatchService.recordFallOfWicket(out.name);
+
     final overCompleted = MatchService.recordLegalBall();
 
-    MatchService.striker = null;
+    if (!MatchService.isLastManStanding) {
+  MatchService.striker = null;
+}
 
     await _afterBall(overCompleted, wicketFell: true);
   }
@@ -312,9 +333,13 @@ class _LiveScoreScreenState extends State<LiveScoreScreen> {
       isWicket: true,
       wicketType: 'Run Out',
       outPlayerId: outPlayer.id,
+      strikerId: striker.id,
+      bowlerId: MatchService.currentBowler!.id,
     );
     MatchService.ballHistory.add(ball);
     MatchService.thisOverBalls.add(ball);
+
+    MatchService.recordFallOfWicket(outPlayer.name);
 
     final overCompleted = MatchService.recordLegalBall();
 
@@ -384,7 +409,10 @@ class _LiveScoreScreenState extends State<LiveScoreScreen> {
         await _pickNextBatsman();
       }
     }
-
+// Rotate strike at end of over (except last man batting)
+if (overCompleted && !MatchService.isLastManStanding) {
+  _rotateStrike();
+}
     // OVER JUST COMPLETED - NEW BOWLER REQUIRED
     if (overCompleted &&
         !MatchService.inningsCompleted &&
@@ -686,9 +714,21 @@ class _LiveScoreScreenState extends State<LiveScoreScreen> {
       appBar: AppBar(
         title: Text(
           "${MatchService.teamAName} vs ${MatchService.teamBName}",
+          overflow: TextOverflow.ellipsis,
         ),
         centerTitle: true,
         actions: [
+          IconButton(
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => const ScorecardScreen(),
+                ),
+              );
+            },
+            icon: const Icon(Icons.list_alt),
+            tooltip: "Scorecard",
+          ),
           IconButton(
             onPressed: _busy ? null : _undo,
             icon: const Icon(Icons.undo),
@@ -707,6 +747,8 @@ class _LiveScoreScreenState extends State<LiveScoreScreen> {
               if (MatchService.isSecondInnings) _targetCard(),
               if (MatchService.isSecondInnings) const SizedBox(height: 14),
               _batsmenCard(),
+              const SizedBox(height: 10),
+              _partnershipRow(),
               const SizedBox(height: 14),
               _bowlerCard(),
               const SizedBox(height: 14),
@@ -726,30 +768,42 @@ class _LiveScoreScreenState extends State<LiveScoreScreen> {
   }
 
   Widget _scoreCard(String battingTeamName) {
-    return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xff1D4ED8), Color(0xff7C3AED)],
+        ),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(18),
+        padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               battingTeamName,
-              style: const TextStyle(fontSize: 16, color: Colors.grey),
+              style: const TextStyle(
+                fontSize: 15,
+                color: Colors.white70,
+                fontWeight: FontWeight.w500,
+              ),
             ),
             const SizedBox(height: 6),
             Text(
               "${MatchService.totalRuns} / ${MatchService.wickets}",
               style: const TextStyle(
-                fontSize: 34,
+                fontSize: 38,
                 fontWeight: FontWeight.bold,
+                color: Colors.white,
               ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 6),
             Text(
-              "Overs: $_oversText / ${MatchService.totalOvers}   "
-              "CRR: ${MatchService.getCurrentRunRate().toStringAsFixed(2)}",
-              style: const TextStyle(fontSize: 15, color: Colors.grey),
+              "Overs $_oversText / ${MatchService.totalOvers}   •   "
+              "CRR ${MatchService.getCurrentRunRate().toStringAsFixed(2)}",
+              style: const TextStyle(fontSize: 14, color: Colors.white70),
             ),
           ],
         ),
@@ -826,6 +880,19 @@ class _LiveScoreScreenState extends State<LiveScoreScreen> {
           style: const TextStyle(fontSize: 15),
         ),
       ],
+    );
+  }
+
+  Widget _partnershipRow() {
+    if (MatchService.striker == null) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: Text(
+        "Partnership: ${MatchService.partnershipRuns} "
+        "(${MatchService.partnershipBalls} balls)",
+        style: const TextStyle(fontSize: 13, color: Colors.grey),
+      ),
     );
   }
 

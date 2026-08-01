@@ -12,6 +12,8 @@ class BallModel {
   final String outPlayerId;
   final int extraRuns;
   final bool changeStrike;
+  final String strikerId;
+  final String bowlerId;
 
   const BallModel({
     required this.id,
@@ -26,6 +28,8 @@ class BallModel {
     this.outPlayerId = '',
     this.extraRuns = 0,
     this.changeStrike = false,
+    this.strikerId = '',
+    this.bowlerId = '',
   });
 
   int get totalRuns {
@@ -53,6 +57,8 @@ class BallModel {
     String? outPlayerId,
     int? extraRuns,
     bool? changeStrike,
+    String? strikerId,
+    String? bowlerId,
   }) {
     return BallModel(
       id: id ?? this.id,
@@ -67,6 +73,8 @@ class BallModel {
       outPlayerId: outPlayerId ?? this.outPlayerId,
       extraRuns: extraRuns ?? this.extraRuns,
       changeStrike: changeStrike ?? this.changeStrike,
+      strikerId: strikerId ?? this.strikerId,
+      bowlerId: bowlerId ?? this.bowlerId,
     );
   }
 
@@ -84,6 +92,8 @@ class BallModel {
       'outPlayerId': outPlayerId,
       'extraRuns': extraRuns,
       'changeStrike': changeStrike,
+      'strikerId': strikerId,
+      'bowlerId': bowlerId,
     };
   }
 
@@ -101,6 +111,8 @@ class BallModel {
       outPlayerId: map['outPlayerId']?.toString() ?? '',
       extraRuns: map['extraRuns'] ?? 0,
       changeStrike: map['changeStrike'] ?? false,
+      strikerId: map['strikerId']?.toString() ?? '',
+      bowlerId: map['bowlerId']?.toString() ?? '',
     );
   }
 

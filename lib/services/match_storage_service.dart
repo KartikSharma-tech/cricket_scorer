@@ -55,11 +55,40 @@ class MatchStorageService {
 
     await prefs.setString("resultText", MatchService.resultText);
 
+    await prefs.setString("tossResult", MatchService.tossResult);
+
     await prefs.setBool("lastManBatting", MatchService.lastManBatting);
 
     await prefs.setString(
       "previousBowler",
       MatchService.previousBowler?.id ?? "",
+    );
+
+    // FALL OF WICKETS
+
+    List<String> fowEncoded = MatchService.fallOfWickets.map((entry) {
+      return jsonEncode(entry);
+    }).toList();
+
+    await prefs.setStringList("fallOfWickets", fowEncoded);
+
+    await prefs.setInt("partnershipStartRuns", MatchService.partnershipStartRuns);
+
+    // FIRST INNINGS SCORECARD SNAPSHOT
+
+    await prefs.setStringList(
+      "firstInningsBattingCard",
+      MatchService.firstInningsBattingCard.map((e) => jsonEncode(e)).toList(),
+    );
+
+    await prefs.setStringList(
+      "firstInningsBowlingCard",
+      MatchService.firstInningsBowlingCard.map((e) => jsonEncode(e)).toList(),
+    );
+
+    await prefs.setStringList(
+      "firstInningsFallOfWickets",
+      MatchService.firstInningsFallOfWickets.map((e) => jsonEncode(e)).toList(),
     );
 
     // CURRENT PLAYERS
@@ -191,6 +220,8 @@ class MatchStorageService {
 
     MatchService.resultText = prefs.getString("resultText") ?? "";
 
+    MatchService.tossResult = prefs.getString("tossResult") ?? "";
+
     MatchService.lastManBatting = prefs.getBool("lastManBatting") ?? true;
 
     // PLAYERS
@@ -310,6 +341,34 @@ class MatchStorageService {
           )
         : null;
 
+    // FALL OF WICKETS
+
+    List<String> fowEncoded = prefs.getStringList("fallOfWickets") ?? [];
+
+    MatchService.fallOfWickets = fowEncoded.map((entry) {
+      return Map<String, dynamic>.from(jsonDecode(entry));
+    }).toList();
+
+    MatchService.partnershipStartRuns =
+        prefs.getInt("partnershipStartRuns") ?? 0;
+
+    // FIRST INNINGS SCORECARD SNAPSHOT
+
+    MatchService.firstInningsBattingCard =
+        (prefs.getStringList("firstInningsBattingCard") ?? [])
+            .map((e) => Map<String, dynamic>.from(jsonDecode(e)))
+            .toList();
+
+    MatchService.firstInningsBowlingCard =
+        (prefs.getStringList("firstInningsBowlingCard") ?? [])
+            .map((e) => Map<String, dynamic>.from(jsonDecode(e)))
+            .toList();
+
+    MatchService.firstInningsFallOfWickets =
+        (prefs.getStringList("firstInningsFallOfWickets") ?? [])
+            .map((e) => Map<String, dynamic>.from(jsonDecode(e)))
+            .toList();
+
     // OUT PLAYERS
 
     List<String> outIds = prefs.getStringList("outPlayers") ?? [];
@@ -377,9 +436,21 @@ hasSavedMatch() async {
 
       "resultText",
 
+      "tossResult",
+
       "lastManBatting",
 
       "previousBowler",
+
+      "fallOfWickets",
+
+      "partnershipStartRuns",
+
+      "firstInningsBattingCard",
+
+      "firstInningsBowlingCard",
+
+      "firstInningsFallOfWickets",
 
       "striker",
 

@@ -55,6 +55,8 @@ class MatchService {
   // =========================
 
   static String resultText = "";
+
+  static String tossResult = "";
   // =========================
   // BALL HISTORY
   // =========================
@@ -90,6 +92,44 @@ class MatchService {
   static bool lastManBatting = true;
 
   // =========================
+  // FALL OF WICKETS / PARTNERSHIP
+  // =========================
+
+  static List<Map<String, dynamic>> fallOfWickets = [];
+
+  // Team score when the current partnership began (runs at last wicket).
+
+  static int partnershipStartRuns = 0;
+
+  static void recordFallOfWicket(String playerName) {
+    fallOfWickets.add({
+      'wicket': wickets,
+      'score': totalRuns,
+      'player': playerName,
+      'overs': "$over.$ball",
+    });
+
+    partnershipStartRuns = totalRuns;
+  }
+
+  static int get partnershipRuns => totalRuns - partnershipStartRuns;
+
+  static int get partnershipBalls =>
+      (striker?.balls ?? 0) + (nonStriker?.balls ?? 0);
+
+  // =========================
+  // FIRST INNINGS SCORECARD SNAPSHOT
+  // =========================
+  // Player stats reset at the innings break, so we keep a plain-data
+  // copy here purely for display on the Scorecard screen.
+
+  static List<Map<String, dynamic>> firstInningsBattingCard = [];
+
+  static List<Map<String, dynamic>> firstInningsBowlingCard = [];
+
+  static List<Map<String, dynamic>> firstInningsFallOfWickets = [];
+
+  // =========================
   // RESET MATCH
   // =========================
 
@@ -118,6 +158,8 @@ class MatchService {
 
     resultText = "";
 
+    tossResult = "";
+
     isSecondInnings = false;
 
     isMatchEnded = false;
@@ -131,6 +173,16 @@ class MatchService {
     currentBowler = null;
 
     previousBowler = null;
+
+    fallOfWickets = [];
+
+    partnershipStartRuns = 0;
+
+    firstInningsBattingCard = [];
+
+    firstInningsBowlingCard = [];
+
+    firstInningsFallOfWickets = [];
 
     ballHistory = [];
 
@@ -172,6 +224,10 @@ class MatchService {
 
     previousBowler = null;
 
+    fallOfWickets = [];
+
+    partnershipStartRuns = 0;
+
     // RESET PLAYER STATS
 
     List<PlayerModel> allPlayers = [...battingPlayers, ...bowlingPlayers];
@@ -203,6 +259,46 @@ class MatchService {
     target = totalRuns + 1;
 
     isSecondInnings = true;
+
+    // SNAPSHOT THE FIRST INNINGS SCORECARD BEFORE STATS GET WIPED
+
+    final Map<String, int> fours = {};
+    final Map<String, int> sixes = {};
+
+    for (final b in ballHistory) {
+      if (!b.isBye && !b.isLegBye && b.strikerId.isNotEmpty) {
+        if (b.runs == 4) {
+          fours[b.strikerId] = (fours[b.strikerId] ?? 0) + 1;
+        }
+        if (b.runs == 6) {
+          sixes[b.strikerId] = (sixes[b.strikerId] ?? 0) + 1;
+        }
+      }
+    }
+
+    firstInningsBattingCard = battingPlayers.map((p) {
+      return {
+        'name': p.name,
+        'runs': p.runs,
+        'balls': p.balls,
+        'fours': fours[p.id] ?? 0,
+        'sixes': sixes[p.id] ?? 0,
+        'out': outPlayers.any((o) => o.id == p.id),
+      };
+    }).toList();
+
+    firstInningsBowlingCard = bowlingPlayers.map((p) {
+      return {
+        'name': p.name,
+        'wickets': p.wickets,
+        'runsGiven': p.runsGiven,
+        'ballsBowled': p.ballsBowled,
+      };
+    }).toList();
+
+    firstInningsFallOfWickets = List<Map<String, dynamic>>.from(
+      fallOfWickets,
+    );
 
     final List<PlayerModel> temp = battingPlayers;
 

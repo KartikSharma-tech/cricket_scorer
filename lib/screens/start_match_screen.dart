@@ -5,7 +5,7 @@ import '../models/player_model.dart';
 import '../services/player_service.dart';
 import '../services/match_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'match_setup_screen.dart';
+import 'toss_screen.dart';
 
 class StartMatchScreen extends StatefulWidget {
   const StartMatchScreen({super.key});
@@ -157,9 +157,9 @@ class _StartMatchScreenState extends State<StartMatchScreen> {
 
       MaterialPageRoute(
         builder: (context) {
-          return MatchSetupScreen(
-            battingPlayers: teamAPlayers,
-            bowlingPlayers: teamBPlayers,
+          return TossScreen(
+            teamAPlayers: teamAPlayers,
+            teamBPlayers: teamBPlayers,
             overs: int.parse(overs),
           );
         },
