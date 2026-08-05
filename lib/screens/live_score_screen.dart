@@ -21,7 +21,7 @@ class _LiveScoreScreenState extends State<LiveScoreScreen> {
 
   final List<Map<String, dynamic>> _undoStack = [];
 
-  bool _busy = false;
+  final bool _busy = false;
 
   // =========================
   // ID GENERATOR
@@ -813,7 +813,7 @@ if (overCompleted && !MatchService.isLastManStanding) {
 
   Widget _targetCard() {
     return Card(
-      color: Colors.deepOrange.withOpacity(0.15),
+      color: Colors.deepOrange.withValues(alpha: 0.15),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
         padding: const EdgeInsets.all(16),

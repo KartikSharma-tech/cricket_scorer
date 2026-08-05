@@ -66,7 +66,7 @@ class CricketScorerApp
           margin: EdgeInsets.zero,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
-            side: BorderSide(color: Colors.white.withOpacity(0.06)),
+            side: BorderSide(color: Colors.white.withValues(alpha: 0.06)),
           ),
         ),
 
