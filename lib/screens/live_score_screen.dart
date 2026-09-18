@@ -21,7 +21,7 @@ class _LiveScoreScreenState extends State<LiveScoreScreen> {
 
   final List<Map<String, dynamic>> _undoStack = [];
 
-  final bool _busy = false;
+  bool _busy = false;
 
   // =========================
   // ID GENERATOR
@@ -395,23 +395,36 @@ class _LiveScoreScreenState extends State<LiveScoreScreen> {
       }
     }
 
-    // A WICKET FELL BUT THE INNINGS CONTINUES
-    if (wicketFell) {
-      if (MatchService.isLastManStanding) {
-        // Solo batsman: move whoever survived onto strike.
-        if (MatchService.striker == null && MatchService.nonStriker != null) {
-          MatchService.striker = MatchService.nonStriker;
-          MatchService.nonStriker = null;
-        }
-        setState(() {});
-      } else if (MatchService.striker == null ||
-          MatchService.nonStriker == null) {
-        await _pickNextBatsman();
-      }
-    }
+  if (MatchService.isLastManStanding) {
+  // Move the surviving batsman to striker.
+  if (MatchService.striker == null) {
+    MatchService.striker = MatchService.nonStriker;
+  }
+
+  // Last man bats alone.
+  MatchService.nonStriker = null;
+
+  if (mounted) {
+    setState(() {});
+  }
+
+  if (overCompleted) {
+  await _pickNextBowler();
+}
+}
+
+// New batsman only if NOT last man batting.
+if (!MatchService.isLastManStanding &&
+    (MatchService.striker == null ||
+        MatchService.nonStriker == null)) {
+  await _pickNextBatsman();
+}
 // Rotate strike at end of over (except last man batting)
 if (overCompleted && !MatchService.isLastManStanding) {
   _rotateStrike();
+}if (overCompleted) {
+  MatchService.currentBowler = null;
+  await _pickNextBowler();
 }
     // OVER JUST COMPLETED - NEW BOWLER REQUIRED
     if (overCompleted &&
@@ -813,7 +826,7 @@ if (overCompleted && !MatchService.isLastManStanding) {
 
   Widget _targetCard() {
     return Card(
-      color: Colors.deepOrange.withValues(alpha: 0.15),
+      color: Colors.deepOrange.withOpacity(0.15),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
         padding: const EdgeInsets.all(16),
