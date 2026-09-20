@@ -10,7 +10,7 @@ class MatchHistoryModel {
   // =========================
 
   @HiveField(0)
-  String teamAName;
+String teamAName;
 
   @HiveField(1)
   String teamBName;
