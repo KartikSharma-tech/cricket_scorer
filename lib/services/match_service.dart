@@ -114,7 +114,8 @@ class MatchService {
 
   static int get partnershipRuns => totalRuns - partnershipStartRuns;
 
-  static int get partnershipBalls =>
+  static int 
+  get partnershipBalls =>
       (striker?.balls ?? 0) + (nonStriker?.balls ?? 0);
 
   // =========================

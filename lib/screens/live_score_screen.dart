@@ -58,6 +58,8 @@ class _LiveScoreScreenState extends State<LiveScoreScreen> {
       'outPlayerIds': MatchService.outPlayers.map((p) => p.id).toList(),
       'ballHistoryLen': MatchService.ballHistory.length,
       'thisOverLen': MatchService.thisOverBalls.length,
+      'fallOfWickets': List.from(MatchService.fallOfWickets),
+'partnershipStartRuns': MatchService.partnershipStartRuns,
     };
   }
 
@@ -66,6 +68,7 @@ class _LiveScoreScreenState extends State<LiveScoreScreen> {
     if (_undoStack.length > 60) {
       _undoStack.removeAt(0);
     }
+    
   }
 
   PlayerModel? _findPlayer(String? id, List<PlayerModel> list) {
@@ -206,7 +209,8 @@ class _LiveScoreScreenState extends State<LiveScoreScreen> {
     MatchService.ballHistory.add(ball);
     MatchService.thisOverBalls.add(ball);
 
-    if (extra % 2 == 1) _rotateStrike();
+    
+if ((1 + extra) % 2 == 1) _rotateStrike(); 
 
     await _afterBall(false);
   }
@@ -218,8 +222,8 @@ class _LiveScoreScreenState extends State<LiveScoreScreen> {
 
     final striker = MatchService.striker!;
     striker.runs += batRuns;
-    if (batRuns > 0) striker.balls += 1;
-
+    // if (batRuns > 0) striker.balls += 1;
+striker.balls += 1;
     MatchService.totalRuns += batRuns + 1;
     MatchService.noBalls += 1;
     MatchService.currentBowler!.runsGiven += batRuns + 1;
