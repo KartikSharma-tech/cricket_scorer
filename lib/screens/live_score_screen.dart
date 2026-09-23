@@ -431,11 +431,8 @@ if (overCompleted && !MatchService.isLastManStanding) {
   await _pickNextBowler();
 }
     // OVER JUST COMPLETED - NEW BOWLER REQUIRED
-    if (overCompleted &&
-        !MatchService.inningsCompleted &&
-        MatchService.currentBowler == null) {
-      await _pickNextBowler();
-    }
+   
+    
 
     if (mounted) setState(() {});
   }

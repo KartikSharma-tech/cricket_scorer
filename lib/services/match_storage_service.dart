@@ -72,7 +72,10 @@ class MatchStorageService {
 
     await prefs.setStringList("fallOfWickets", fowEncoded);
 
-    await prefs.setInt("partnershipStartRuns", MatchService.partnershipStartRuns);
+    await prefs.setInt(
+      "partnershipStartRuns",
+      MatchService.partnershipStartRuns,
+    );
 
     // FIRST INNINGS SCORECARD SNAPSHOT
 
@@ -213,8 +216,7 @@ class MatchStorageService {
 
     MatchService.firstInningsScore = prefs.getInt("firstInningsScore") ?? 0;
 
-    MatchService.firstInningsWickets =
-        prefs.getInt("firstInningsWickets") ?? 0;
+    MatchService.firstInningsWickets = prefs.getInt("firstInningsWickets") ?? 0;
 
     MatchService.target = prefs.getInt("target") ?? 0;
 
@@ -294,39 +296,48 @@ class MatchStorageService {
 
     // STRIKER
 
-   MatchService.striker = MatchService.battingPlayers.where((player) {
-  return player.id == strikerId;
-}).isNotEmpty
-    ? MatchService.battingPlayers.firstWhere(
-        (player) => player.id == strikerId,
-      )
-    : (MatchService.battingPlayers.isNotEmpty
-        ? MatchService.battingPlayers.first
-        : null);
+    MatchService.striker =
+        MatchService.battingPlayers.where((player) {
+          return player.id == strikerId;
+        }).isNotEmpty
+        ? MatchService.battingPlayers.firstWhere(
+            (player) => player.id == strikerId,
+          )
+        : () {
+            final available = MatchService.battingPlayers.where((player) {
+              return !MatchService.outPlayers.any((out) => out.id == player.id);
+            }).toList();
 
-    // NON STRIKER
+            return available.isNotEmpty ? available.first : null;
+          }();
+    MatchService.nonStriker =
+        MatchService.battingPlayers.where((player) {
+          return player.id == nonStrikerId;
+        }).isNotEmpty
+        ? MatchService.battingPlayers.firstWhere(
+            (player) => player.id == nonStrikerId,
+          )
+        : () {
+            final available = MatchService.battingPlayers.where((player) {
+              return player.id != MatchService.striker?.id &&
+                  !MatchService.outPlayers.any((out) => out.id == player.id);
+            }).toList();
 
-    MatchService.nonStriker = MatchService.battingPlayers.where((player) {
-  return player.id == nonStrikerId;
-}).isNotEmpty
-    ? MatchService.battingPlayers.firstWhere(
-        (player) => player.id == nonStrikerId,
-      )
-    : (MatchService.battingPlayers.length > 1
-        ? MatchService.battingPlayers[1]
-        : null);
+            return available.isNotEmpty ? available.first : null;
+          }();
 
     // BOWLER
 
-   MatchService.currentBowler = MatchService.bowlingPlayers.where((player) {
-  return player.id == bowlerId;
-}).isNotEmpty
-    ? MatchService.bowlingPlayers.firstWhere(
-        (player) => player.id == bowlerId,
-      )
-    : (MatchService.bowlingPlayers.isNotEmpty
-        ? MatchService.bowlingPlayers.first
-        : null);
+    MatchService.currentBowler =
+        MatchService.bowlingPlayers.where((player) {
+          return player.id == bowlerId;
+        }).isNotEmpty
+        ? MatchService.bowlingPlayers.firstWhere(
+            (player) => player.id == bowlerId,
+          )
+        : (MatchService.bowlingPlayers.isNotEmpty
+              ? MatchService.bowlingPlayers.first
+              : null);
 
     // PREVIOUS BOWLER (for consecutive-over restriction)
 
@@ -383,21 +394,16 @@ class MatchStorageService {
   // =========================
   // CLEAR MATCH
   // =========================
-// =========================
-// HAS SAVED MATCH
-// =========================
+  // =========================
+  // HAS SAVED MATCH
+  // =========================
 
-static Future<bool>
-hasSavedMatch() async {
+  static Future<bool> hasSavedMatch() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
 
-  SharedPreferences prefs =
-  await SharedPreferences
-      .getInstance();
+    return prefs.containsKey("teamAName");
+  }
 
-  return prefs.containsKey(
-    "teamAName",
-  );
-}
   static Future<void> clearMatch() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
 

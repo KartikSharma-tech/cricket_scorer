@@ -74,7 +74,8 @@ class MatchService {
   static List<PlayerModel> battingPlayers = [];
 
   static List<PlayerModel> bowlingPlayers = [];
-
+static String firstBattingTeam = "";
+static String secondBattingTeam = "";
   static List<PlayerModel> outPlayers = [];
 
   static PlayerModel? striker;
@@ -83,6 +84,9 @@ class MatchService {
 
   static PlayerModel? currentBowler;
 
+  
+
+  static int partnershipBallCount = 0;
   // BOWLER WHO BOWLED THE PREVIOUS OVER (cannot bowl consecutive overs)
 
   static PlayerModel? previousBowler;
@@ -114,10 +118,7 @@ class MatchService {
 
   static int get partnershipRuns => totalRuns - partnershipStartRuns;
 
-  static int 
-  get partnershipBalls =>
-      (striker?.balls ?? 0) + (nonStriker?.balls ?? 0);
-
+  static int get partnershipBalls => partnershipBallCount;
   // =========================
   // FIRST INNINGS SCORECARD SNAPSHOT
   // =========================
@@ -136,6 +137,7 @@ class MatchService {
 
   static void resetMatch() {
     totalRuns = 0;
+    partnershipBallCount = 0;
 
     wickets = 0;
 
@@ -202,6 +204,8 @@ class MatchService {
     totalRuns = 0;
 
     wickets = 0;
+
+    partnershipBallCount = 0;
 
     over = 0;
 
@@ -297,9 +301,7 @@ class MatchService {
       };
     }).toList();
 
-    firstInningsFallOfWickets = List<Map<String, dynamic>>.from(
-      fallOfWickets,
-    );
+    firstInningsFallOfWickets = List<Map<String, dynamic>>.from(fallOfWickets);
 
     final List<PlayerModel> temp = battingPlayers;
 
@@ -318,7 +320,10 @@ class MatchService {
   // Returns true if the over just completed.
 
   static bool recordLegalBall() {
-    ball++;
+    partnershipBallCount++;
+        ball++;
+
+
 
     if (currentBowler != null) {
       currentBowler!.ballsBowled++;
@@ -469,10 +474,12 @@ class MatchService {
     if (totalRuns >= target) {
       int wicketsLeft = wicketsRemaining;
 
-      resultText =
-          "$teamBName won by "
-          "$wicketsLeft wickets";
+      // resultText =
+      //     "$teamBName won by "
+      //     "$wicketsLeft wickets";
 
+      final chasingTeam = secondBattingTeam;
+      resultText = "$chasingTeam won by $wicketsLeft wickets";
       isMatchEnded = true;
 
       return;
@@ -490,9 +497,9 @@ class MatchService {
       } else {
         int runMargin = firstInningsScore - totalRuns;
 
-        resultText =
-            "$teamAName won by "
-            "$runMargin runs";
+      resultText =
+    "$firstBattingTeam won by "
+    "$runMargin runs";
       }
 
       isMatchEnded = true;
