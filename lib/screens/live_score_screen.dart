@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../models/ball_model.dart';
 import '../models/player_model.dart';
@@ -59,7 +60,8 @@ class _LiveScoreScreenState extends State<LiveScoreScreen> {
       'ballHistoryLen': MatchService.ballHistory.length,
       'thisOverLen': MatchService.thisOverBalls.length,
       'fallOfWickets': List.from(MatchService.fallOfWickets),
-'partnershipStartRuns': MatchService.partnershipStartRuns,
+      'partnershipStartRuns': MatchService.partnershipStartRuns,
+      'partnershipBallCount': MatchService.partnershipBallCount,
     };
   }
 
@@ -68,7 +70,6 @@ class _LiveScoreScreenState extends State<LiveScoreScreen> {
     if (_undoStack.length > 60) {
       _undoStack.removeAt(0);
     }
-    
   }
 
   PlayerModel? _findPlayer(String? id, List<PlayerModel> list) {
@@ -87,6 +88,11 @@ class _LiveScoreScreenState extends State<LiveScoreScreen> {
     MatchService.byes = s['byes'];
     MatchService.legByes = s['legByes'];
     MatchService.isMatchEnded = s['isMatchEnded'];
+    MatchService.partnershipStartRuns = s['partnershipStartRuns'];
+    MatchService.partnershipBallCount = s['partnershipBallCount'];
+    MatchService.fallOfWickets = List<Map<String, dynamic>>.from(
+      s['fallOfWickets'],
+    );
 
     final strikerP = _findPlayer(s['strikerId'], MatchService.battingPlayers);
     if (strikerP != null) {
@@ -136,9 +142,12 @@ class _LiveScoreScreenState extends State<LiveScoreScreen> {
 
   Future<void> _undo() async {
     if (_undoStack.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("Nothing to undo")));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Nothing to undo'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
       return;
     }
 
@@ -164,6 +173,7 @@ class _LiveScoreScreenState extends State<LiveScoreScreen> {
 
   Future<void> _addRun(int runs) async {
     if (_guardBlocked()) return;
+    setState(() => _busy = true);
 
     _pushUndo();
 
@@ -173,6 +183,9 @@ class _LiveScoreScreenState extends State<LiveScoreScreen> {
 
     MatchService.totalRuns += runs;
     MatchService.currentBowler!.runsGiven += runs;
+
+    // Milestone check
+    _checkMilestone(striker, runs);
 
     final ball = BallModel(
       id: _newId(),
@@ -187,11 +200,17 @@ class _LiveScoreScreenState extends State<LiveScoreScreen> {
 
     if (runs % 2 == 1) _rotateStrike();
 
+    // Haptic feedback
+    if (runs == 4) HapticFeedback.mediumImpact();
+    if (runs == 6) HapticFeedback.heavyImpact();
+
     await _afterBall(overCompleted);
+    setState(() => _busy = false);
   }
 
   Future<void> _addWide(int extra) async {
     if (_guardBlocked()) return;
+    setState(() => _busy = true);
 
     _pushUndo();
 
@@ -209,21 +228,21 @@ class _LiveScoreScreenState extends State<LiveScoreScreen> {
     MatchService.ballHistory.add(ball);
     MatchService.thisOverBalls.add(ball);
 
-    
-if ((1 + extra) % 2 == 1) _rotateStrike(); 
+    if ((1 + extra) % 2 == 1) _rotateStrike();
 
     await _afterBall(false);
+    setState(() => _busy = false);
   }
 
   Future<void> _addNoBall(int batRuns) async {
     if (_guardBlocked()) return;
+    setState(() => _busy = true);
 
     _pushUndo();
 
     final striker = MatchService.striker!;
     striker.runs += batRuns;
-    // if (batRuns > 0) striker.balls += 1;
-striker.balls += 1;
+    striker.balls += 1;
     MatchService.totalRuns += batRuns + 1;
     MatchService.noBalls += 1;
     MatchService.currentBowler!.runsGiven += batRuns + 1;
@@ -241,10 +260,12 @@ striker.balls += 1;
     if (batRuns % 2 == 1) _rotateStrike();
 
     await _afterBall(false);
+    setState(() => _busy = false);
   }
 
   Future<void> _addExtraRun(int runs, {required bool isLegBye}) async {
     if (_guardBlocked()) return;
+    setState(() => _busy = true);
 
     _pushUndo();
 
@@ -273,10 +294,12 @@ striker.balls += 1;
     if (runs % 2 == 1) _rotateStrike();
 
     await _afterBall(overCompleted);
+    setState(() => _busy = false);
   }
 
   Future<void> _addWicket(String type) async {
     if (_guardBlocked()) return;
+    setState(() => _busy = true);
 
     _pushUndo();
 
@@ -286,6 +309,8 @@ striker.balls += 1;
     MatchService.wickets += 1;
     MatchService.currentBowler!.wickets += 1;
     MatchService.outPlayers.add(out);
+
+    HapticFeedback.heavyImpact();
 
     final ball = BallModel(
       id: _newId(),
@@ -304,10 +329,11 @@ striker.balls += 1;
     final overCompleted = MatchService.recordLegalBall();
 
     if (!MatchService.isLastManStanding) {
-  MatchService.striker = null;
-}
+      MatchService.striker = null;
+    }
 
     await _afterBall(overCompleted, wicketFell: true);
+    setState(() => _busy = false);
   }
 
   Future<void> _addRunOut({
@@ -315,6 +341,7 @@ striker.balls += 1;
     required int runsCompleted,
   }) async {
     if (_guardBlocked()) return;
+    setState(() => _busy = true);
 
     _pushUndo();
 
@@ -325,6 +352,8 @@ striker.balls += 1;
     MatchService.totalRuns += runsCompleted;
     MatchService.currentBowler!.runsGiven += runsCompleted;
     MatchService.wickets += 1;
+
+    HapticFeedback.heavyImpact();
 
     final outPlayer = strikerIsOut
         ? MatchService.striker!
@@ -354,9 +383,53 @@ striker.balls += 1;
     }
 
     await _afterBall(overCompleted, wicketFell: true);
+    setState(() => _busy = false);
   }
 
+  // =========================
+  // MILESTONE CHECKER
+  // =========================
+
+  void _checkMilestone(PlayerModel striker, int runs) {
+    final prev = striker.runs - runs;
+    final curr = striker.runs;
+
+    if (prev < 50 && curr >= 50 && curr < 100) {
+      _showMilestoneSnack('🏏 ${striker.name} - FIFTY! 50 runs');
+    } else if (prev < 100 && curr >= 100) {
+      _showMilestoneSnack('💯 ${striker.name} - CENTURY! 100 runs');
+      HapticFeedback.heavyImpact();
+    }
+
+    // 5-wicket haul
+    if (MatchService.currentBowler != null &&
+        MatchService.currentBowler!.wickets == 5) {
+      _showMilestoneSnack(
+          '🎳 ${MatchService.currentBowler!.name} - FIVE WICKET HAUL!');
+    }
+  }
+
+  void _showMilestoneSnack(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          msg,
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        backgroundColor: Colors.green.shade700,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
+  // =========================
+  // GUARD
+  // =========================
+
   bool _guardBlocked() {
+    if (_busy) return true;
     if (MatchService.isMatchEnded) return true;
     if (MatchService.striker == null) return true;
     if (MatchService.nonStriker == null && !MatchService.isLastManStanding) {
@@ -375,7 +448,7 @@ striker.balls += 1;
     setState(() {});
     await MatchStorageService.saveMatch();
 
-    // INNINGS OVER (all out or overs finished)
+    // INNINGS OVER
     if (MatchService.inningsCompleted) {
       if (!MatchService.isSecondInnings) {
         await _startSecondInningsFlow();
@@ -389,7 +462,7 @@ striker.balls += 1;
       return;
     }
 
-    // TARGET CHASED DOWN (can happen mid-over)
+    // TARGET CHASED DOWN (mid-over)
     if (MatchService.isSecondInnings && MatchService.targetAchieved) {
       MatchService.checkWinner();
       await MatchStorageService.saveMatch();
@@ -399,40 +472,31 @@ striker.balls += 1;
       }
     }
 
-  if (MatchService.isLastManStanding) {
-  // Move the surviving batsman to striker.
-  if (MatchService.striker == null) {
-    MatchService.striker = MatchService.nonStriker;
-  }
+    // LAST MAN STANDING
+    if (MatchService.isLastManStanding) {
+      if (MatchService.striker == null) {
+        MatchService.striker = MatchService.nonStriker;
+      }
+      MatchService.nonStriker = null;
+      if (mounted) setState(() {});
+    }
 
-  // Last man bats alone.
-  MatchService.nonStriker = null;
+    // NEW BATSMAN if needed
+    if (!MatchService.isLastManStanding &&
+        (MatchService.striker == null || MatchService.nonStriker == null)) {
+      await _pickNextBatsman();
+    }
 
-  if (mounted) {
-    setState(() {});
-  }
+    // ROTATE STRIKE at end of over
+    if (overCompleted && !MatchService.isLastManStanding) {
+      _rotateStrike();
+    }
 
-  if (overCompleted) {
-  await _pickNextBowler();
-}
-}
-
-// New batsman only if NOT last man batting.
-if (!MatchService.isLastManStanding &&
-    (MatchService.striker == null ||
-        MatchService.nonStriker == null)) {
-  await _pickNextBatsman();
-}
-// Rotate strike at end of over (except last man batting)
-if (overCompleted && !MatchService.isLastManStanding) {
-  _rotateStrike();
-}if (overCompleted) {
-  MatchService.currentBowler = null;
-  await _pickNextBowler();
-}
-    // OVER JUST COMPLETED - NEW BOWLER REQUIRED
-   
-    
+    // NEW BOWLER every over — single call
+    if (overCompleted) {
+      MatchService.currentBowler = null;
+      await _pickNextBowler();
+    }
 
     if (mounted) setState(() {});
   }
@@ -444,17 +508,46 @@ if (overCompleted && !MatchService.isLastManStanding) {
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
-        title: const Text("Innings Break"),
-        content: Text(
-          "${MatchService.teamAName} scored "
-          "${MatchService.totalRuns}/${MatchService.wickets}.\n\n"
-          "${MatchService.teamBName} need "
-          "${MatchService.totalRuns + 1} runs to win.",
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: const [
+            Icon(Icons.sports_cricket, color: Colors.orange),
+            SizedBox(width: 8),
+            Text('Innings Break'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _inningsBreakRow(
+              MatchService.firstBattingTeam,
+              MatchService.totalRuns,
+              MatchService.wickets,
+            ),
+            const SizedBox(height: 12),
+            const Divider(),
+            const SizedBox(height: 12),
+            Text(
+              '${MatchService.secondBattingTeam} need '
+              '${MatchService.totalRuns + 1} to win',
+              style: const TextStyle(fontSize: 15),
+            ),
+          ],
         ),
         actions: [
           ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
             onPressed: () => Navigator.pop(ctx),
-            child: const Text("Start 2nd Innings"),
+            child: const Text(
+              'Start 2nd Innings',
+              style: TextStyle(color: Colors.white),
+            ),
           ),
         ],
       ),
@@ -468,14 +561,31 @@ if (overCompleted && !MatchService.isLastManStanding) {
 
     await MatchStorageService.saveMatch();
 
-    await _pickNextBatsman(); // fills striker
+    await _pickNextBatsman();
     if (!mounted) return;
-    await _pickNextBatsman(); // fills non-striker
+    await _pickNextBatsman();
     if (!mounted) return;
     await _pickNextBowler();
 
     if (mounted) setState(() {});
     await MatchStorageService.saveMatch();
+  }
+
+  Widget _inningsBreakRow(String team, int runs, int wkts) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(team, style: const TextStyle(fontWeight: FontWeight.w600)),
+        Text(
+          '$runs / $wkts',
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
+            color: Colors.blue,
+          ),
+        ),
+      ],
+    );
   }
 
   void _goToResult() {
@@ -494,10 +604,10 @@ if (overCompleted && !MatchService.isLastManStanding) {
 
     final available = MatchService.battingPlayers.where((p) {
       final isOut = MatchService.outPlayers.any((o) => o.id == p.id);
-      final isCurrentlyIn =
+      final isIn =
           p.id == MatchService.striker?.id ||
           p.id == MatchService.nonStriker?.id;
-      return !isOut && !isCurrentlyIn;
+      return !isOut && !isIn;
     }).toList();
 
     if (available.isEmpty) return;
@@ -506,11 +616,21 @@ if (overCompleted && !MatchService.isLastManStanding) {
       context: context,
       barrierDismissible: false,
       builder: (ctx) => SimpleDialog(
-        title: const Text("Select Next Batsman"),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        title: Row(
+          children: const [
+            Icon(Icons.sports_cricket, size: 20, color: Colors.green),
+            SizedBox(width: 8),
+            Text('Next Batsman'),
+          ],
+        ),
         children: available.map((p) {
           return SimpleDialogOption(
             onPressed: () => Navigator.pop(ctx, p),
-            child: Text(p.name),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Text(p.name, style: const TextStyle(fontSize: 16)),
+            ),
           );
         }).toList(),
       ),
@@ -541,11 +661,35 @@ if (overCompleted && !MatchService.isLastManStanding) {
       context: context,
       barrierDismissible: false,
       builder: (ctx) => SimpleDialog(
-        title: const Text("Select Next Bowler"),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        title: Row(
+          children: const [
+            Icon(Icons.sports_baseball, size: 20, color: Colors.orange),
+            SizedBox(width: 8),
+            Text('Select Bowler'),
+          ],
+        ),
         children: available.map((p) {
+          final overs = (p.ballsBowled / 6).floor();
+          final balls = p.ballsBowled % 6;
           return SimpleDialogOption(
             onPressed: () => Navigator.pop(ctx, p),
-            child: Text(p.name),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(p.name, style: const TextStyle(fontSize: 16)),
+                  Text(
+                    '${p.wickets}-${p.runsGiven} ($overs.$balls)',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: Colors.grey,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           );
         }).toList(),
       ),
@@ -567,7 +711,14 @@ if (overCompleted && !MatchService.isLastManStanding) {
     final type = await showDialog<String>(
       context: context,
       builder: (ctx) => SimpleDialog(
-        title: const Text("How Out?"),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        title: Row(
+          children: const [
+            Icon(Icons.cancel, size: 20, color: Colors.red),
+            SizedBox(width: 8),
+            Text('How Out?'),
+          ],
+        ),
         children: [
           'Bowled',
           'Caught',
@@ -578,7 +729,10 @@ if (overCompleted && !MatchService.isLastManStanding) {
         ].map((t) {
           return SimpleDialogOption(
             onPressed: () => Navigator.pop(ctx, t),
-            child: Text(t),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Text(t, style: const TextStyle(fontSize: 16)),
+            ),
           );
         }).toList(),
       ),
@@ -595,7 +749,6 @@ if (overCompleted && !MatchService.isLastManStanding) {
 
   Future<void> _showRunOutDialog() async {
     if (MatchService.isLastManStanding) {
-      // Only one batsman on the field - they're the only one who can be out.
       await _addRunOut(strikerIsOut: true, runsCompleted: 0);
       return;
     }
@@ -603,15 +756,28 @@ if (overCompleted && !MatchService.isLastManStanding) {
     final strikerOut = await showDialog<bool>(
       context: context,
       builder: (ctx) => SimpleDialog(
-        title: const Text("Who's Out?"),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        title: const Text("Who's Run Out?"),
         children: [
           SimpleDialogOption(
             onPressed: () => Navigator.pop(ctx, true),
-            child: Text(MatchService.striker?.name ?? "Striker"),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Text(
+                MatchService.striker?.name ?? 'Striker',
+                style: const TextStyle(fontSize: 16),
+              ),
+            ),
           ),
           SimpleDialogOption(
             onPressed: () => Navigator.pop(ctx, false),
-            child: Text(MatchService.nonStriker?.name ?? "Non-Striker"),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Text(
+                MatchService.nonStriker?.name ?? 'Non-Striker',
+                style: const TextStyle(fontSize: 16),
+              ),
+            ),
           ),
         ],
       ),
@@ -622,11 +788,15 @@ if (overCompleted && !MatchService.isLastManStanding) {
     final runs = await showDialog<int>(
       context: context,
       builder: (ctx) => SimpleDialog(
-        title: const Text("Runs Completed Before Run Out"),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        title: const Text('Runs Completed'),
         children: [0, 1, 2, 3].map((r) {
           return SimpleDialogOption(
             onPressed: () => Navigator.pop(ctx, r),
-            child: Text("$r"),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Text('$r runs', style: const TextStyle(fontSize: 16)),
+            ),
           );
         }).toList(),
       ),
@@ -643,11 +813,18 @@ if (overCompleted && !MatchService.isLastManStanding) {
     final extra = await showDialog<int>(
       context: context,
       builder: (ctx) => SimpleDialog(
-        title: const Text("Wide"),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        title: const Text('Wide — Extra runs?'),
         children: [0, 1, 2, 3, 4].map((r) {
           return SimpleDialogOption(
             onPressed: () => Navigator.pop(ctx, r),
-            child: Text(r == 0 ? "Wide only" : "Wide + $r run(s)"),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Text(
+                r == 0 ? 'Wide only (+1)' : 'Wide + $r run(s)',
+                style: const TextStyle(fontSize: 16),
+              ),
+            ),
           );
         }).toList(),
       ),
@@ -662,11 +839,15 @@ if (overCompleted && !MatchService.isLastManStanding) {
     final runs = await showDialog<int>(
       context: context,
       builder: (ctx) => SimpleDialog(
-        title: const Text("No Ball - Runs off Bat"),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        title: const Text('No Ball — Runs off bat?'),
         children: [0, 1, 2, 3, 4, 6].map((r) {
           return SimpleDialogOption(
             onPressed: () => Navigator.pop(ctx, r),
-            child: Text("$r"),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Text('$r', style: const TextStyle(fontSize: 16)),
+            ),
           );
         }).toList(),
       ),
@@ -681,11 +862,15 @@ if (overCompleted && !MatchService.isLastManStanding) {
     final runs = await showDialog<int>(
       context: context,
       builder: (ctx) => SimpleDialog(
-        title: Text(isLegBye ? "Leg Byes" : "Byes"),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        title: Text(isLegBye ? 'Leg Byes' : 'Byes'),
         children: [1, 2, 3, 4].map((r) {
           return SimpleDialogOption(
             onPressed: () => Navigator.pop(ctx, r),
-            child: Text("$r"),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Text('$r', style: const TextStyle(fontSize: 16)),
+            ),
           );
         }).toList(),
       ),
@@ -698,15 +883,15 @@ if (overCompleted && !MatchService.isLastManStanding) {
   // UI HELPERS
   // =========================
 
-  String get _oversText => "${MatchService.over}.${MatchService.ball}";
+  String get _oversText => '${MatchService.over}.${MatchService.ball}';
 
   String _ballLabel(BallModel b) {
-    if (b.isWicket) return "W";
-    if (b.isWide) return b.extraRuns > 0 ? "Wd+${b.extraRuns}" : "Wd";
-    if (b.isNoBall) return "Nb${b.runs > 0 ? '+${b.runs}' : ''}";
-    if (b.isBye) return "${b.runs}B";
-    if (b.isLegBye) return "${b.runs}Lb";
-    return "${b.runs}";
+    if (b.isWicket) return 'W';
+    if (b.isWide) return b.extraRuns > 0 ? 'Wd+${b.extraRuns}' : 'Wd';
+    if (b.isNoBall) return 'Nb${b.runs > 0 ? '+${b.runs}' : ''}';
+    if (b.isBye) return '${b.runs}B';
+    if (b.isLegBye) return '${b.runs}Lb';
+    return '${b.runs}';
   }
 
   Color _ballColor(BallModel b) {
@@ -718,323 +903,691 @@ if (overCompleted && !MatchService.isLastManStanding) {
     return Colors.grey.shade700;
   }
 
+  // =========================
+  // BUILD
+  // =========================
+
   @override
   Widget build(BuildContext context) {
     final battingTeamName = MatchService.isSecondInnings
-        ? MatchService.teamBName
-        : MatchService.teamAName;
+        ? MatchService.secondBattingTeam
+        : MatchService.firstBattingTeam;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          "${MatchService.teamAName} vs ${MatchService.teamBName}",
-          overflow: TextOverflow.ellipsis,
-        ),
-        centerTitle: true,
-        actions: [
-          IconButton(
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (context) => const ScorecardScreen(),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop) return;
+        final leave = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
+            title: const Text('Leave Match?'),
+            content: const Text(
+              'Match is in progress. Your progress is saved — you can resume later.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Stay'),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
                 ),
-              );
-            },
-            icon: const Icon(Icons.list_alt),
-            tooltip: "Scorecard",
-          ),
-          IconButton(
-            onPressed: _busy ? null : _undo,
-            icon: const Icon(Icons.undo),
-            tooltip: "Undo Last Ball",
-          ),
-        ],
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _scoreCard(battingTeamName),
-              const SizedBox(height: 14),
-              if (MatchService.isSecondInnings) _targetCard(),
-              if (MatchService.isSecondInnings) const SizedBox(height: 14),
-              _batsmenCard(),
-              const SizedBox(height: 10),
-              _partnershipRow(),
-              const SizedBox(height: 14),
-              _bowlerCard(),
-              const SizedBox(height: 14),
-              _thisOverRow(),
-              const SizedBox(height: 20),
-              _runButtons(),
-              const SizedBox(height: 14),
-              _extrasButtons(),
-              const SizedBox(height: 14),
-              _wicketButton(),
-              const SizedBox(height: 20),
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text(
+                  'Leave',
+                  style: TextStyle(color: Colors.white),
+                ),
+              ),
             ],
+          ),
+        );
+        if (leave == true && context.mounted) {
+          Navigator.of(context).pop();
+        }
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(
+            '${MatchService.teamAName} vs ${MatchService.teamBName}',
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 16),
+          ),
+          centerTitle: true,
+          actions: [
+            IconButton(
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const ScorecardScreen(),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.list_alt),
+              tooltip: 'Scorecard',
+            ),
+            IconButton(
+              onPressed: _busy ? null : _undo,
+              icon: const Icon(Icons.undo),
+              tooltip: 'Undo Last Ball',
+            ),
+          ],
+        ),
+        body: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(14, 14, 14, 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // SCORE CARD
+                _scoreCard(battingTeamName),
+                const SizedBox(height: 10),
+
+                // TARGET CARD (2nd innings only)
+                if (MatchService.isSecondInnings) ...[
+                  _targetCard(),
+                  const SizedBox(height: 10),
+                ],
+
+                // BATSMEN + BOWLER ROW
+                Row(
+                  children: [
+                    Expanded(child: _batsmenCard()),
+                    const SizedBox(width: 10),
+                    _bowlerCard(),
+                  ],
+                ),
+                const SizedBox(height: 8),
+
+                // PARTNERSHIP + THIS OVER ROW
+                _partnershipAndOverRow(),
+                const SizedBox(height: 18),
+
+                // DIVIDER
+                Row(
+                  children: [
+                    const Expanded(child: Divider()),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      child: Text(
+                        'SCORING',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.grey.shade500,
+                          letterSpacing: 1.2,
+                        ),
+                      ),
+                    ),
+                    const Expanded(child: Divider()),
+                  ],
+                ),
+                const SizedBox(height: 14),
+
+                // RUN BUTTONS
+                _runButtons(),
+                const SizedBox(height: 12),
+
+                // EXTRAS ROW
+                _extrasButtons(),
+                const SizedBox(height: 12),
+
+                // WICKET BUTTON
+                _wicketButton(),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
+  // =========================
+  // SCORE CARD WIDGET
+  // =========================
+
   Widget _scoreCard(String battingTeamName) {
+    final inningsLabel = MatchService.isSecondInnings
+        ? '2nd Innings'
+        : '1st Innings';
+
     return Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(20),
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [Color(0xff1D4ED8), Color(0xff7C3AED)],
         ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xff1D4ED8).withOpacity(0.35),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
       ),
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              battingTeamName,
-              style: const TextStyle(
-                fontSize: 15,
-                color: Colors.white70,
-                fontWeight: FontWeight.w500,
-              ),
+            // Team name + innings badge
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    battingTeamName,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      color: Colors.white70,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    inningsLabel,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 6),
-            Text(
-              "${MatchService.totalRuns} / ${MatchService.wickets}",
-              style: const TextStyle(
-                fontSize: 38,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
+            const SizedBox(height: 8),
+
+            // Big score
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  '${MatchService.totalRuns}',
+                  style: const TextStyle(
+                    fontSize: 52,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                    height: 1,
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8, left: 4),
+                  child: Text(
+                    '/ ${MatchService.wickets}',
+                    style: const TextStyle(
+                      fontSize: 26,
+                      color: Colors.white70,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 6),
-            Text(
-              "Overs $_oversText / ${MatchService.totalOvers}   •   "
-              "CRR ${MatchService.getCurrentRunRate().toStringAsFixed(2)}",
-              style: const TextStyle(fontSize: 14, color: Colors.white70),
+            const SizedBox(height: 8),
+
+            // Overs + CRR + Extras
+            Row(
+              children: [
+                _scoreChip(
+                  'Overs',
+                  '$_oversText / ${MatchService.totalOvers}',
+                ),
+                const SizedBox(width: 10),
+                _scoreChip(
+                  'CRR',
+                  MatchService.getCurrentRunRate().toStringAsFixed(2),
+                ),
+                const SizedBox(width: 10),
+                _scoreChip(
+                  'Extras',
+                  '${MatchService.getTotalExtras()}',
+                ),
+              ],
             ),
           ],
         ),
       ),
     );
   }
+
+  Widget _scoreChip(String label, String value) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(fontSize: 10, color: Colors.white60),
+          ),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 14,
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // =========================
+  // TARGET CARD
+  // =========================
 
   Widget _targetCard() {
-    return Card(
-      color: Colors.deepOrange.withOpacity(0.15),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              "Target: ${MatchService.target}",
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              "Need ${MatchService.getRemainingRuns()} runs "
-              "off ${MatchService.getRemainingBalls()} balls   "
-              "RRR: ${MatchService.getRequiredRunRate().toStringAsFixed(2)}",
-              style: const TextStyle(fontSize: 14),
-            ),
-          ],
+    final remaining = MatchService.getRemainingRuns();
+    final balls = MatchService.getRemainingBalls();
+    final rrr = MatchService.getRequiredRunRate();
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.deepOrange.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: Colors.deepOrange.withOpacity(0.3),
         ),
+      ),
+      child: Row(
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Target ${MatchService.target}',
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+              Text(
+                'Need $remaining off $balls balls',
+                style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+              ),
+            ],
+          ),
+          const Spacer(),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.deepOrange,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Column(
+              children: [
+                const Text(
+                  'RRR',
+                  style: TextStyle(fontSize: 10, color: Colors.white70),
+                ),
+                Text(
+                  rrr.toStringAsFixed(2),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
 
+  // =========================
+  // BATSMEN CARD
+  // =========================
+
   Widget _batsmenCard() {
-    return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            _batsmanRow(MatchService.striker, onStrike: true),
-            const SizedBox(height: 10),
-            _batsmanRow(MatchService.nonStriker, onStrike: false),
-          ],
-        ),
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.grey.withOpacity(0.2)),
+      ),
+      child: Column(
+        children: [
+          _batsmanRow(MatchService.striker, onStrike: true),
+          const SizedBox(height: 8),
+          _batsmanRow(MatchService.nonStriker, onStrike: false),
+        ],
       ),
     );
   }
 
   Widget _batsmanRow(PlayerModel? player, {required bool onStrike}) {
+    final sr = player != null && player.balls > 0
+        ? (player.runs / player.balls * 100).toStringAsFixed(0)
+        : '-';
+
     return Row(
       children: [
-        if (onStrike)
-          const Icon(Icons.sports_cricket, size: 18, color: Colors.green)
-        else
-          const SizedBox(width: 18),
-        const SizedBox(width: 8),
+        SizedBox(
+          width: 18,
+          child: onStrike
+              ? const Icon(Icons.sports_cricket, size: 14, color: Colors.green)
+              : null,
+        ),
+        const SizedBox(width: 4),
         Expanded(
           child: Text(
-            player?.name ?? "-",
+            player?.name ?? '-',
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              fontSize: 16,
+              fontSize: 14,
               fontWeight: onStrike ? FontWeight.bold : FontWeight.normal,
             ),
           ),
         ),
-        Text(
-          player == null
-              ? ""
-              : "${player.runs} (${player.balls})",
-          style: const TextStyle(fontSize: 15),
+        if (player != null) ...[
+          Text(
+            '${player.runs}',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: onStrike
+                  ? Theme.of(context).colorScheme.primary
+                  : null,
+            ),
+          ),
+          Text(
+            ' (${player.balls})',
+            style: const TextStyle(fontSize: 12, color: Colors.grey),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            'SR $sr',
+            style: const TextStyle(fontSize: 10, color: Colors.grey),
+          ),
+        ],
+      ],
+    );
+  }
+
+  // =========================
+  // BOWLER CARD
+  // =========================
+
+  Widget _bowlerCard() {
+    final bowler = MatchService.currentBowler;
+    final overs = bowler != null
+        ? '${(bowler.ballsBowled / 6).floor()}.${bowler.ballsBowled % 6}'
+        : '-';
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.grey.withOpacity(0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.sports_baseball, size: 13, color: Colors.orange),
+              const SizedBox(width: 4),
+              const Text(
+                'Bowling',
+                style: TextStyle(fontSize: 10, color: Colors.grey),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            bowler?.name ?? '-',
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+          ),
+          if (bowler != null) ...[
+            const SizedBox(height: 2),
+            Text(
+              '${bowler.wickets}-${bowler.runsGiven} ($overs)',
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  // =========================
+  // PARTNERSHIP + THIS OVER
+  // =========================
+
+  Widget _partnershipAndOverRow() {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Partnership
+        if (MatchService.striker != null)
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.grey.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Partnership',
+                    style: TextStyle(fontSize: 10, color: Colors.grey),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${MatchService.partnershipRuns} (${MatchService.partnershipBalls} b)',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+        if (MatchService.thisOverBalls.isNotEmpty) ...[
+          const SizedBox(width: 10),
+
+          // This Over
+          Expanded(
+            flex: 2,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.grey.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Over ${MatchService.over + 1}',
+                    style: const TextStyle(fontSize: 10, color: Colors.grey),
+                  ),
+                  const SizedBox(height: 6),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: MatchService.thisOverBalls.map((b) {
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 6),
+                          child: CircleAvatar(
+                            radius: 15,
+                            backgroundColor: _ballColor(b),
+                            child: Text(
+                              _ballLabel(b),
+                              style: const TextStyle(
+                                fontSize: 10,
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  // =========================
+  // RUN BUTTONS
+  // =========================
+
+  Widget _runButtons() {
+    // Row 1: 1 2 3 4 6
+    // Row 2: 0 (dot) — full width separate style
+    return Column(
+      children: [
+        Row(
+          children: [1, 2, 3, 4, 6].map((r) {
+            Color? bg;
+            if (r == 4) bg = Colors.blue;
+            if (r == 6) bg = Colors.purple;
+
+            return Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 3),
+                child: SizedBox(
+                  height: 58,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: bg,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      elevation: r == 4 || r == 6 ? 3 : 1,
+                    ),
+                    onPressed: _busy ? null : () => _addRun(r),
+                    child: Text(
+                      '$r',
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          width: double.infinity,
+          height: 48,
+          child: OutlinedButton(
+            style: OutlinedButton.styleFrom(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+              side: BorderSide(color: Colors.grey.shade400),
+            ),
+            onPressed: _busy ? null : () => _addRun(0),
+            child: Text(
+              'DOT  •  0',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey.shade600,
+              ),
+            ),
+          ),
         ),
       ],
     );
   }
 
-  Widget _partnershipRow() {
-    if (MatchService.striker == null) return const SizedBox.shrink();
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: Text(
-        "Partnership: ${MatchService.partnershipRuns} "
-        "(${MatchService.partnershipBalls} balls)",
-        style: const TextStyle(fontSize: 13, color: Colors.grey),
-      ),
-    );
-  }
-
-  Widget _bowlerCard() {
-    final bowler = MatchService.currentBowler;
-
-    return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            const Icon(Icons.sports_baseball, size: 18, color: Colors.orange),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                bowler?.name ?? "-",
-                style: const TextStyle(fontSize: 16),
-              ),
-            ),
-            Text(
-              bowler == null
-                  ? ""
-                  : "${bowler.wickets}-${bowler.runsGiven} "
-                        "(${(bowler.ballsBowled / 6).floor()}."
-                        "${bowler.ballsBowled % 6})",
-              style: const TextStyle(fontSize: 15),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _thisOverRow() {
-    if (MatchService.thisOverBalls.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
-    return SizedBox(
-      height: 40,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: MatchService.thisOverBalls.length,
-        separatorBuilder: (context, index) => const SizedBox(width: 8),
-        itemBuilder: (context, index) {
-          final b = MatchService.thisOverBalls[index];
-          return CircleAvatar(
-            radius: 18,
-            backgroundColor: _ballColor(b),
-            child: Text(
-              _ballLabel(b),
-              style: const TextStyle(fontSize: 12, color: Colors.white),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _runButtons() {
-    return GridView.count(
-      crossAxisCount: 4,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      mainAxisSpacing: 10,
-      crossAxisSpacing: 10,
-      childAspectRatio: 1.6,
-      children: [0, 1, 2, 3, 4, 5, 6].map((r) {
-        return ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: r == 4
-                ? Colors.blue
-                : (r == 6 ? Colors.purple : null),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-          onPressed: () => _addRun(r),
-          child: Text(
-            "$r",
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-        );
-      }).toList(),
-    );
-  }
+  // =========================
+  // EXTRAS BUTTONS
+  // =========================
 
   Widget _extrasButtons() {
     return Row(
       children: [
-        Expanded(child: _extraButton("WD", _showWideDialog)),
+        Expanded(child: _extraButton('WD', _showWideDialog, Colors.orange)),
         const SizedBox(width: 8),
-        Expanded(child: _extraButton("NB", _showNoBallDialog)),
+        Expanded(child: _extraButton('NB', _showNoBallDialog, Colors.orange.shade800)),
         const SizedBox(width: 8),
-        Expanded(child: _extraButton("BYE", () => _showByeDialog(false))),
+        Expanded(child: _extraButton('BYE', () => _showByeDialog(false), Colors.teal)),
         const SizedBox(width: 8),
-        Expanded(child: _extraButton("LB", () => _showByeDialog(true))),
+        Expanded(child: _extraButton('LB', () => _showByeDialog(true), Colors.teal.shade700)),
       ],
     );
   }
 
-  Widget _extraButton(String label, VoidCallback onTap) {
-    return ElevatedButton(
-      style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.orange.shade700,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-      ),
-      onPressed: onTap,
-      child: Text(label),
-    );
-  }
-
-  Widget _wicketButton() {
+  Widget _extraButton(String label, VoidCallback onTap, Color color) {
     return SizedBox(
-      height: 55,
+      height: 48,
       child: ElevatedButton(
         style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.red,
+          backgroundColor: color,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
         ),
-        onPressed: _showWicketDialog,
-        child: const Text(
-          "WICKET",
+        onPressed: _busy ? null : onTap,
+        child: Text(
+          label,
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+      ),
+    );
+  }
+
+  // =========================
+  // WICKET BUTTON
+  // =========================
+
+  Widget _wicketButton() {
+    return SizedBox(
+      height: 56,
+      child: ElevatedButton.icon(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.red,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+          elevation: 3,
+        ),
+        onPressed: _busy ? null : _showWicketDialog,
+        icon: const Icon(Icons.cancel, color: Colors.white),
+        label: const Text(
+          'WICKET',
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.bold,

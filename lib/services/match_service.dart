@@ -114,6 +114,8 @@ static String secondBattingTeam = "";
     });
 
     partnershipStartRuns = totalRuns;
+      partnershipBallCount = 0; 
+
   }
 
   static int get partnershipRuns => totalRuns - partnershipStartRuns;
